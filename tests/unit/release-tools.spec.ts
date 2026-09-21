@@ -16,7 +16,7 @@ describe('native smoke fixture bundle', () => {
       const firstResult = await createSmokeBundle(first)
       const secondResult = await createSmokeBundle(second)
 
-      expect(firstResult.root).toContain('InkNest-0.0.15-smoke-fixtures')
+      expect(firstResult.root).toContain('InkNest-0.1.0-smoke-fixtures')
       await expect(createSmokeBundle(first)).rejects.toThrow('already exists')
       expect(firstResult.archiveSha256).toBe(secondResult.archiveSha256)
       const archiveHeader = await readFile(firstResult.archive)

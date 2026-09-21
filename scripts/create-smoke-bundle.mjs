@@ -4,7 +4,7 @@ import { join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { deflateRawSync } from 'node:zlib'
 
-const BUNDLE_NAME = 'InkNest-0.0.15-smoke-fixtures'
+const BUNDLE_NAME = 'InkNest-0.1.0-smoke-fixtures'
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAIAAAABACAYAAADS1n9/AAAAxElEQVR42u3SMQEAIAgAMJpwGMsmBiKfDbCEHzvWYJFn92S31mghgAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCDADw97W7RXmKBVvgAAAABJRU5ErkJggg==',
   'base64'
@@ -129,7 +129,7 @@ export async function createSmokeBundle(outputDirectory) {
     mkdir(join(root, 'tabs', '乙'), { recursive: true })
   ])
 
-  const guide = `# InkNest 0.0.15 本机验收样本
+  const guide = `# InkNest 0.1.0 本机验收样本
 
 仅使用本目录副本测试，不要放入真实写作资料。
 1. 用“打开文档”选择 docs/中文 说明.md；本目录PNG可见，父目录与远程图片受限。

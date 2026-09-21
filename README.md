@@ -12,7 +12,7 @@ InkNest 是本地 Markdown 阅读与源码编辑器。文档保留在用户选�
 - 浅色与深色主题、全屏阅读演示、本地图片查看和链接打开。
 - UTF-8 BOM、LF/CRLF 和末尾换行保留；HTML 预览不参与文件保存。
 
-当前版本为 **0.0.15**，仍处于开发中。目标平台为 Windows 11 x64 和 macOS 14 及以上 Apple Silicon Mac；兼容性、功能限制和已知问题见[已知限制](docs/known-issues.md)。
+当前版本为 **0.1.0**，仍处于开发中。目标平台为 Windows 11 x64 和 macOS 14 及以上 Apple Silicon Mac；兼容性、功能限制和已知问题见[已知限制](docs/known-issues.md)。
 
 ## 从源码运行
 
@@ -37,7 +37,7 @@ npm run dev
 
 ## 开发与文档
 
-- [开发与构建](docs/development.md)：环境、检查命令和本地打包。
+- [开发与构建](docs/development.md)：环境、检查命令、本地打包和 GitHub Actions 打包。
 - [开发协作](CONTRIBUTING.md)：分支、提交和变更要求。
 - [文档索引](docs/README.md)：产品需求、交互、架构、接口、安全和测试。
 - [版本变化](CHANGELOG.md)：面向使用者的版本说明。

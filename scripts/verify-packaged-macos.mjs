@@ -282,7 +282,7 @@ export async function verifyPackagedMac({ appPath, fixtureRoot, evidenceDirector
   assert(['all', 'startup', 'running', 'smoke', 'surfaces', 'native-presentation'].includes(phase), 'Unknown verification phase')
   // Never overwrite an earlier attempt or remove its profile/failure evidence.
   await mkdir(evidenceDirectory, { recursive: false })
-  const workspace = await realpath(await mkdtemp(join(tmpdir(), 'inknest-0.0.3-packaged-')))
+  const workspace = await realpath(await mkdtemp(join(tmpdir(), 'inknest-packaged-')))
   const executable = join(appPath, 'Contents', 'MacOS', 'InkNest')
   const result = { schemaVersion: 2, expectedVersion, phase, workspace, startedAt: new Date().toISOString(), failures: [], cleanupFailures: [],
     startup: { endpoint: 'Host before fresh packaged process launch through visible welcome heading and enabled Open button; warm OS filesystem caches.', samplesMs: [], requiredCount: 30 },

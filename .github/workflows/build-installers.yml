@@ -1,0 +1,94 @@
+name: Build installers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            os: macos-15
+            platform: darwin
+            arch: arm64
+            command: dist:mac
+            suffix: mac-arm64
+            extension: dmg
+          - name: Windows x64
+            os: windows-2022
+            platform: win32
+            arch: x64
+            command: dist:win
+            suffix: win-x64
+            extension: exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Read version and check runner
+        id: metadata
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          node <<'JS'
+          const fs = require('node:fs')
+          const pkg = require('./package.json')
+          const lock = require('./package-lock.json')
+          if (process.platform !== process.env.EXPECTED_PLATFORM || process.arch !== process.env.EXPECTED_ARCH) throw new Error('Unexpected runner platform or architecture')
+          if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(pkg.version) || lock.version !== pkg.version || lock.packages[''].version !== pkg.version) throw new Error('Invalid or inconsistent application version')
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\n`)
+          JS
+
+      - name: Install pinned npm and dependencies
+        run: |
+          npm install --global npm@11.12.1 --no-audit --no-fund
+          npm ci --include=optional --no-audit --no-fund
+
+      - name: Check lint and packaging tools
+        run: |
+          npm run lint
+          node node_modules/vitest/vitest.mjs run tests/unit/release-tools.spec.ts tests/unit/nsis-integrity.spec.ts
+
+      - name: Build installer
+        run: npm run ${{ matrix.command }}
+
+      - name: Inspect macOS application
+        if: runner.os == 'macOS'
+        env:
+          APP_VERSION: ${{ steps.metadata.outputs.version }}
+        run: node scripts/package-inspection.mjs --expected-version "$APP_VERSION" --mac-app ".tooling/mac-builds/$APP_VERSION/mac-arm64/InkNest.app"
+
+      - name: Inspect Windows application
+        if: runner.os == 'Windows'
+        env:
+          APP_VERSION: ${{ steps.metadata.outputs.version }}
+        run: node scripts/package-inspection.mjs --expected-version "$APP_VERSION" --win-dir "release/$APP_VERSION/win-unpacked"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: InkNest-${{ steps.metadata.outputs.version }}-${{ matrix.suffix }}
+          path: release/${{ steps.metadata.outputs.version }}/InkNest-${{ steps.metadata.outputs.version }}-${{ matrix.suffix }}.${{ matrix.extension }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

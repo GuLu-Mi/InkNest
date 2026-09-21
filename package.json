@@ -1,6 +1,6 @@
 {
   "name": "inknest",
-  "version": "0.0.15",
+  "version": "0.1.0",
   "private": true,
   "description": "A local-first Markdown reader and editor for Windows and macOS.",
   "main": "out/main/index.js",
@@ -22,12 +22,12 @@
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
     "build": "npm run typecheck && electron-vite build",
-    "smoke:fixtures": "node scripts/create-smoke-bundle.mjs release/0.0.15-search-panel",
-    "inspect:packages": "node scripts/package-inspection.mjs --expected-version 0.0.15 --mac-app .tooling/mac-builds/0.0.15/mac-arm64/InkNest.app --win-dir release/0.0.15-search-panel/win-unpacked --output release/0.0.15-search-panel/package-inspection.json",
-    "verify:packaged:mac": "node scripts/verify-packaged-macos.mjs --phase smoke --expected-version 0.0.15 --app .tooling/mac-builds/0.0.15/mac-arm64/InkNest.app --fixtures release/0.0.15-search-panel/InkNest-0.0.15-smoke-fixtures --evidence-dir release/0.0.15-search-panel/packaged-smoke --output release/0.0.15-search-panel/macos-packaged-verification.json",
-    "dist:mac": "npm run build && node scripts/package-macos.mjs release/0.0.15-search-panel",
+    "smoke:fixtures": "node scripts/create-smoke-bundle.mjs release/0.1.0",
+    "inspect:packages": "node scripts/package-inspection.mjs --expected-version 0.1.0 --mac-app .tooling/mac-builds/0.1.0/mac-arm64/InkNest.app --win-dir release/0.1.0/win-unpacked --output release/0.1.0/package-inspection.json",
+    "verify:packaged:mac": "node scripts/verify-packaged-macos.mjs --phase smoke --expected-version 0.1.0 --app .tooling/mac-builds/0.1.0/mac-arm64/InkNest.app --fixtures release/0.1.0/InkNest-0.1.0-smoke-fixtures --evidence-dir release/0.1.0/packaged-smoke --output release/0.1.0/macos-packaged-verification.json",
+    "dist:mac": "npm run build && node scripts/package-macos.mjs release/0.1.0",
     "dist:win": "npm run build && node scripts/package-windows.mjs",
-    "dist:all": "npm run build && node scripts/package-macos.mjs release/0.0.15-search-panel && node scripts/package-windows.mjs"
+    "dist:all": "npm run build && node scripts/package-macos.mjs release/0.1.0 && node scripts/package-windows.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.1",

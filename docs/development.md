@@ -41,7 +41,7 @@ Electron E2E 前执行 build，避免误测旧 out。完整回归可以显式使
 | `npm run inspect:packages` | 检查版本、架构、ASAR、固定接口、安全选项与原生库 |
 | `npm run verify:packaged:mac` | 针对实际 Mac 应用包执行 smoke；系统 picker/确认是受控边界 |
 
-当前分发目录为 `release/0.0.15-search-panel/`；Mac 可运行副本位于 `.tooling/mac-builds/0.0.15/mac-arm64/InkNest.app`。这两个目录均为本地生成物。新版本同步 package/lock、builder 输出和脚本预期版本。
+当前分发目录为 `release/0.1.0/`；Mac 可运行副本位于 `.tooling/mac-builds/0.1.0/mac-arm64/InkNest.app`。这两个目录均为本地生成物。新版本同步 package/lock、builder 输出和脚本预期版本。
 
 Windows 脚本创建 `.tooling/windows-<version>-*`，用完整锁文件和 win32/x64 参数安装生产依赖，再复制同一 out。不能打入 macOS 的 sharp 二进制。两端需分别检查 .node/动态库架构及 ASAR 外解包位置，跨构建不等于 Windows 原生加载通过。
 
@@ -49,9 +49,26 @@ Mac 使用 ad-hoc 签名，未完成 Developer ID、公证与正式加固。Wind
 
 Mac 测试副本可能进入 LaunchServices；实际包测试后的注销仅针对已确认测试路径，不重置全局数据库、不改变默认关联。隐藏构建目录减少普通扫描，不保证主动运行旧包后仍只有一个系统候选。
 
-## 4. 发布配置
+## 4. 在 GitHub 上打包
 
-打包入口显式禁用自动发布，只生成本地产物。仓库没有 CI 工作流；上述命令需在本地运行，跨平台构建不能替代目标系统运行测试。
+仓库包含手动触发的 [Build installers 工作流](../.github/workflows/build-installers.yml)，分别在 macOS arm64 和 Windows x64 runner 上构建安装包。
+
+1. 将源码连同 `.github/workflows/build-installers.yml` 推送到 GitHub 仓库的默认分支。
+2. 打开仓库的 **Actions → Build installers → Run workflow**，选择需要构建的分支并运行。
+3. 等待两个任务成功，在该次运行页面的 **Artifacts** 下载对应平台的压缩包。
+4. 解压获得 `InkNest-0.1.0-mac-arm64.dmg` 或 `InkNest-0.1.0-win-x64.exe`。
+
+工作流使用锁定的 Node/npm 与锁文件，执行 lint、打包工具测试、类型检查、构建和产物版本/架构检查。Windows 打包同时校验安装器和内嵌卸载器 CRC。它不运行图形 E2E，也不替代目标系统的安装、输入法和保存恢复测试。
+
+仅手动运行时构建，推送代码和创建标签不会触发。产物保留 14 天，不会自动创建或发布 GitHub Release。如需长期提供下载，可在 **Releases → Draft a new release** 选择 `v0.1.0` 标签，上传解压后的安装包并填写版本说明。
+
+看不到 Run workflow 按钮时，确认工作流已在默认分支、仓库已启用 Actions，并且当前账号有写入权限。GitHub 操作说明见[手动运行工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)和[下载构建产物](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)。
+
+## 5. 版本与发布配置
+
+版本号同时保存在 `package.json` 和 `package-lock.json`，安装包名称中的版本由 electron-builder 读取。更改版本时，同步 npm 打包/检查命令、`electron-builder.yml` 的输出目录、测试样本名称及相关文档；输出目录按 `release/<版本>/` 隔离。
+
+打包入口显式禁用自动发布，只生成构建产物。
 
 正式分发需要配置项目许可、第三方声明、签名及 macOS 公证，并核对安装包版本与架构。签名密钥不写入仓库或日志。项目没有自动更新服务。
 
