@@ -1,14 +1,46 @@
-name: Build installers
+name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 构建成功后发布到 Releases（取消勾选则只打包和验证）
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+env:
+  RELEASE_PUBLISH: ${{ inputs.publish }}
+
 jobs:
+  prepare:
+    name: Check version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Validate main, version and release availability
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-release.mjs prepare
+
   package:
     name: ${{ matrix.name }}
+    needs: prepare
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -20,6 +52,7 @@ jobs:
             platform: darwin
             arch: arm64
             command: dist:mac
+            inspect: mac
             suffix: mac-arm64
             extension: dmg
           - name: Windows x64
@@ -27,6 +60,7 @@ jobs:
             platform: win32
             arch: x64
             command: dist:win
+            inspect: win
             suffix: win-x64
             extension: exe
     defaults:
@@ -44,19 +78,17 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Read version and check runner
-        id: metadata
+      - name: Check runner and version
         env:
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          node <<'JS'
-          const fs = require('node:fs')
-          const pkg = require('./package.json')
-          const lock = require('./package-lock.json')
+          node --input-type=module <<'JS'
+          import { readReleaseConfig } from './scripts/release-config.mjs'
+          const config = await readReleaseConfig()
           if (process.platform !== process.env.EXPECTED_PLATFORM || process.arch !== process.env.EXPECTED_ARCH) throw new Error('Unexpected runner platform or architecture')
-          if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(pkg.version) || lock.version !== pkg.version || lock.packages[''].version !== pkg.version) throw new Error('Invalid or inconsistent application version')
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\n`)
+          if (config.version !== process.env.EXPECTED_VERSION) throw new Error('Version changed between jobs')
           JS
 
       - name: Install pinned npm and dependencies
@@ -64,31 +96,59 @@ jobs:
           npm install --global npm@11.12.1 --no-audit --no-fund
           npm ci --include=optional --no-audit --no-fund
 
-      - name: Check lint and packaging tools
+      - name: Check lint and release tools
         run: |
           npm run lint
-          node node_modules/vitest/vitest.mjs run tests/unit/release-tools.spec.ts tests/unit/nsis-integrity.spec.ts
+          node node_modules/vitest/vitest.mjs run tests/unit/release-tools.spec.ts tests/unit/nsis-integrity.spec.ts tests/unit/release-pipeline.spec.ts
 
       - name: Build installer
         run: npm run ${{ matrix.command }}
 
-      - name: Inspect macOS application
-        if: runner.os == 'macOS'
-        env:
-          APP_VERSION: ${{ steps.metadata.outputs.version }}
-        run: node scripts/package-inspection.mjs --expected-version "$APP_VERSION" --mac-app ".tooling/mac-builds/$APP_VERSION/mac-arm64/InkNest.app"
-
-      - name: Inspect Windows application
-        if: runner.os == 'Windows'
-        env:
-          APP_VERSION: ${{ steps.metadata.outputs.version }}
-        run: node scripts/package-inspection.mjs --expected-version "$APP_VERSION" --win-dir "release/$APP_VERSION/win-unpacked"
+      - name: Inspect application
+        run: npm run inspect:packages -- ${{ matrix.inspect }}
 
       - name: Upload installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: InkNest-${{ steps.metadata.outputs.version }}-${{ matrix.suffix }}
-          path: release/${{ steps.metadata.outputs.version }}/InkNest-${{ steps.metadata.outputs.version }}-${{ matrix.suffix }}.${{ matrix.extension }}
+          name: InkNest-${{ needs.prepare.outputs.version }}-${{ matrix.suffix }}
+          path: release/${{ needs.prepare.outputs.version }}/InkNest-${{ needs.prepare.outputs.version }}-${{ matrix.suffix }}.${{ matrix.extension }}
           if-no-files-found: error
           compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Publish or preview release
+    needs: [prepare, package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Download this run's installers
+        run: |
+          gh run download "$GITHUB_RUN_ID" --name "InkNest-$RELEASE_VERSION-win-x64" --dir .tooling/release-assets
+          gh run download "$GITHUB_RUN_ID" --name "InkNest-$RELEASE_VERSION-mac-arm64" --dir .tooling/release-assets
+      - name: Verify attachments and publish or preview
+        run: node scripts/github-release.mjs finish .tooling/release-assets
+      - name: Upload release preview
+        if: ${{ !inputs.publish }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: InkNest-${{ needs.prepare.outputs.version }}-release-preview
+          path: |
+            .tooling/release-preview.md
+            .tooling/release-assets/SHA256SUMS.txt
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 14

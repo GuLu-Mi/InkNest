@@ -3,8 +3,8 @@ import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { deflateRawSync } from 'node:zlib'
+import { readReleaseConfig, releaseConfig } from './release-config.mjs'
 
-const BUNDLE_NAME = 'InkNest-0.1.0-smoke-fixtures'
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAIAAAABACAYAAADS1n9/AAAAxElEQVR42u3SMQEAIAgAMJpwGMsmBiKfDbCEHzvWYJFn92S31mghgAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCCAAAIIIIAAAggggAACCCDADw97W7RXmKBVvgAAAABJRU5ErkJggg==',
   'base64'
@@ -109,10 +109,11 @@ async function createDeterministicZip(archive, output, inputs) {
   await writeFile(archive, Buffer.concat([...localParts, ...centralParts, end]))
 }
 
-export async function createSmokeBundle(outputDirectory) {
+export async function createSmokeBundle(outputDirectory, version) {
+  const config = version === undefined ? await readReleaseConfig() : releaseConfig(version)
   const output = resolve(outputDirectory)
-  const root = join(output, BUNDLE_NAME)
-  const archive = join(output, `${BUNDLE_NAME}.zip`)
+  const root = join(output, config.fixtureName)
+  const archive = join(output, `${config.fixtureName}.zip`)
   for (const path of [root, archive]) {
     try { await stat(path) } catch (error) {
       if (error.code === 'ENOENT') continue
@@ -129,7 +130,7 @@ export async function createSmokeBundle(outputDirectory) {
     mkdir(join(root, 'tabs', '乙'), { recursive: true })
   ])
 
-  const guide = `# InkNest 0.1.0 本机验收样本
+  const guide = `# InkNest ${config.version} 本机验收样本
 
 仅使用本目录副本测试，不要放入真实写作资料。
 1. 用“打开文档”选择 docs/中文 说明.md；本目录PNG可见，父目录与远程图片受限。
@@ -200,6 +201,7 @@ const message = '中文候选词'
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const result = await createSmokeBundle(process.argv[2] ?? join(process.cwd(), 'release'))
+  const config = await readReleaseConfig()
+  const result = await createSmokeBundle(process.argv[2] ?? config.directory, config.version)
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
 }

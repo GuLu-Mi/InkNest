@@ -8,7 +8,7 @@ asarUnpack:
 npmRebuild: false
 afterAllArtifactBuild: scripts/nsis-integrity.mjs
 directories:
-  output: release/0.1.0
+  output: release/${version}
 files:
   - out/**
 toolsets:

@@ -41,7 +41,7 @@ Electron E2E 前执行 build，避免误测旧 out。完整回归可以显式使
 | `npm run inspect:packages` | 检查版本、架构、ASAR、固定接口、安全选项与原生库 |
 | `npm run verify:packaged:mac` | 针对实际 Mac 应用包执行 smoke；系统 picker/确认是受控边界 |
 
-当前分发目录为 `release/0.1.0/`；Mac 可运行副本位于 `.tooling/mac-builds/0.1.0/mac-arm64/InkNest.app`。这两个目录均为本地生成物。新版本同步 package/lock、builder 输出和脚本预期版本。
+分发目录为 `release/<版本>/`；Mac 可运行副本位于 `.tooling/mac-builds/<版本>/mac-arm64/InkNest.app`。版本取自 `package.json` 并与锁文件核对，打包、样本和检查脚本自动使用同一版本。检查单个平台可执行 `npm run inspect:packages -- mac` 或 `npm run inspect:packages -- win`。这些目录均为本地生成物。
 
 Windows 脚本创建 `.tooling/windows-<version>-*`，用完整锁文件和 win32/x64 参数安装生产依赖，再复制同一 out。不能打入 macOS 的 sharp 二进制。两端需分别检查 .node/动态库架构及 ASAR 外解包位置，跨构建不等于 Windows 原生加载通过。
 
@@ -51,28 +51,33 @@ Mac 使用 ad-hoc 签名，未完成 Developer ID、公证与正式加固。Wind
 
 Mac 测试副本可能进入 LaunchServices；实际包测试后的注销仅针对已确认测试路径，不重置全局数据库、不改变默认关联。隐藏构建目录减少普通扫描，不保证主动运行旧包后仍只有一个系统候选。
 
-## 4. 在 GitHub 上打包
+## 4. 升级版本并发布
 
-仓库包含手动触发的 [Build installers 工作流](../.github/workflows/build-installers.yml)，分别在 macOS arm64 和 Windows x64 runner 上构建安装包。
+本地完成开发和验证后，使用一条命令升级版本，例如：
 
-1. 将源码连同 `.github/workflows/build-installers.yml` 推送到 GitHub 仓库的默认分支。
-2. 打开仓库的 **Actions → Build installers → Run workflow**，选择 `main` 并运行。
-3. 等待两个任务成功，在该次运行页面的 **Artifacts** 下载对应平台的压缩包。
-4. 解压获得 `InkNest-0.1.0-mac-arm64.dmg` 或 `InkNest-0.1.0-win-x64.exe`。
+```sh
+npm run version:set -- 0.1.1
+```
 
-工作流使用锁定的 Node/npm 与锁文件，执行 lint、打包工具测试、类型检查、构建和产物版本/架构检查。Windows 打包同时校验安装器和内嵌卸载器 CRC。它不运行图形 E2E，也不替代目标系统的安装、输入法和保存恢复测试。
+将示例替换为新版本。命令同步修改 `package.json` 和 `package-lock.json`，不创建提交或标签；其他输出目录、安装包名和验收样本名自动跟随。当前发布支持 `主版本.次版本.修订号` 格式。可在 `CHANGELOG.md` 新增对应版本的功能、修复和限制说明，保留旧版本记录；没有对应条目时，Release 提供项目说明和与上一版本的代码比较链接。
 
-仅手动运行时构建，推送代码和创建标签不会触发。产物保留 14 天，不会自动创建或发布 GitHub Release。如需长期提供下载，可在 **Releases → Draft a new release** 选择 `v0.1.0` 标签，上传解压后的安装包并填写版本说明。
+1. 本地验证并提交改动，推送到 `main`。
+2. 打开 **Actions → Release → Run workflow**，分支选择 `main`，保留“构建成功后发布到 Releases”勾选并运行。
+3. 等待整个工作流成功，到仓库右侧 **Releases** 下载新版本。
 
-也可使用手动触发的 [Publish release 工作流](../.github/workflows/publish-release.yml)发布已有构建：先将 `v<版本号>` 标签指向成功的 `main` 构建提交，并保存同名、没有附件的 Release 草稿及版本说明。然后在 `main` 上运行 Publish release，填写构建运行编号和标签。工作流核对来源、版本与提交，下载两端安装包，生成 SHA-256 校验文件，验证上传结果后发布为最新版本。已经发布的 Release 不会被覆盖；普通推送和创建标签不会触发发布。
+无需手动创建标签、Release 草稿或填写运行编号。工作流固定使用点击运行时的 `main` 提交，依次核对版本、构建 Windows x64 和 macOS arm64 安装包、检查产物、创建对应 `v<版本>` 标签、上传两个安装包及 `SHA256SUMS.txt`，核对上传大小和摘要后发布为最新版本。构建期间 `main` 的后续提交不会混入该版本。
 
-看不到 Run workflow 按钮时，确认工作流已在默认分支、仓库已启用 Actions，并且当前账号有写入权限。GitHub 操作说明见[手动运行工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)和[下载构建产物](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)。
+普通推送和创建标签不会触发发布。已发布版本不能覆盖；标签若指向其他提交会停止。上传中断时保留未发布草稿，重跑同一提交可复用已校验的附件；草稿或附件与本次构建不一致时停止，不覆盖既有内容。
 
-## 5. 版本与发布配置
+只需要打包或验证流程时，取消“构建成功后发布到 Releases”勾选。两端仍完整构建、检查并生成发布预览，但不创建或修改标签和 Release；安装包、校验文件和预览在该次运行的 **Artifacts** 下载，保留 14 天。
 
-版本号同时保存在 `package.json` 和 `package-lock.json`，安装包名称中的版本由 electron-builder 读取。更改版本时，同步 npm 打包/检查命令、`electron-builder.yml` 的输出目录、测试样本名称及相关文档；输出目录按 `release/<版本>/` 隔离。
+工作流见 [Release](../.github/workflows/build-installers.yml)。它使用锁定的 Node/npm 与锁文件，执行 lint、发布工具测试、类型检查、构建和产物版本/架构检查；Windows 保留安装器及嵌入卸载器双 CRC 校验。CI 不运行图形 E2E，也不替代目标系统的安装、输入法和保存恢复验证。
 
-打包入口显式禁用自动发布，只生成构建产物。
+看不到 Run workflow 按钮时，确认工作流在默认分支、仓库已启用 Actions、当前账号有写入权限。GitHub 操作说明见[手动运行工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。
+
+## 5. 分发配置
+
+本地打包只生成安装包，正式上传由手动 Release 工作流处理。版本与路径的共同入口是 `scripts/release-config.mjs`；builder 的输出目录使用版本宏，不需要随版本修改配置。
 
 正式分发需要配置项目许可、第三方声明、签名及 macOS 公证，并核对安装包版本与架构。签名密钥不写入仓库或日志。项目没有自动更新服务。
 
