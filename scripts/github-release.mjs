@@ -68,12 +68,17 @@ export function verifyUploadedAssets(uploaded, expected, complete = false) {
 }
 
 export function releaseNotes(config, changelog, repo, previousTag) {
+  const sourceBase = `https://github.com/${repo}/blob/${config.tag}/`
   const sections = changelog.split(/^## /mu).slice(1)
   const section = sections.find(text => text.split('\n')[0].trim() === config.version)
-  const changes = section?.slice(section.indexOf('\n') + 1).trim()
+  const changes = section?.slice(section.indexOf('\n') + 1).trim().replace(/\]\(([^\s)]+)\)/gu, (link, target) => {
+    if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/iu.test(target)) return link
+    const path = target.startsWith('#') ? `CHANGELOG.md${target}` : target.replace(/^\//u, '')
+    return `](${new URL(path, sourceBase).href})`
+  })
   const compare = previousTag && previousTag !== config.tag
     ? `\n[查看代码变化](https://github.com/${repo}/compare/${encodeURIComponent(previousTag)}...${config.tag})\n` : ''
-  return `InkNest ${config.version}\n\n${changes || '本版本的功能与使用方式见项目 README。'}\n${compare}
+  return `InkNest ${config.version}\n\n${changes || `本版本的功能与使用方式见项目 [README](${sourceBase}README.md)。`}\n${compare}
 ## 下载
 
 | 平台 | 安装包 |

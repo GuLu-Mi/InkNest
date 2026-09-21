@@ -107,6 +107,13 @@ describe('release attachments and notes', () => {
     expect(notes).toContain(config.installers[0])
     expect(releaseNotes(config, '# Changes', 'owner/repo')).toContain('README')
   })
+  it('keeps changelog document links usable on a Release page at the released version', () => {
+    const notes = releaseNotes(config, '# Changes\n\n## 1.2.3\n\n[限制](docs/known-issues.md) [功能](#features) [GitHub](https://github.com)', 'owner/repo')
+    expect(notes).toContain('[限制](https://github.com/owner/repo/blob/v1.2.3/docs/known-issues.md)')
+    expect(notes).toContain('[功能](https://github.com/owner/repo/blob/v1.2.3/CHANGELOG.md#features)')
+    expect(notes).toContain('[GitHub](https://github.com)')
+    expect(releaseNotes(config, '# Changes', 'owner/repo')).toContain('[README](https://github.com/owner/repo/blob/v1.2.3/README.md)')
+  })
 })
 
 describe('release publication safeguards', () => {
