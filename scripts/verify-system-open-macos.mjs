@@ -7,6 +7,7 @@ import { tmpdir, release } from 'node:os'
 import { resolve, join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { chromium, expect } from '@playwright/test'
+import { unregisterMacBuild } from './macos-app-registration.mjs'
 
 if (process.platform !== 'darwin') throw new Error('macOS only')
 const appPath = resolve(process.argv[2])
@@ -53,6 +54,16 @@ try {
   await writeFile(join(output, 'launchservices.json'), JSON.stringify(result, null, 2) + '\n')
   console.log(JSON.stringify(result, null, 2))
 } finally {
-  if (browser) await browser.close()
-  if (pid) { try { process.kill(pid, 'SIGTERM') } catch { /* already closed */ } }
+  try {
+    if (browser) await browser.close()
+  } finally {
+    try {
+      if (pid) {
+        try { process.kill(pid, 'SIGTERM') } catch { /* already closed */ }
+        await expect.poll(() => {
+          try { process.kill(pid, 0); return true } catch { return false }
+        }, { timeout: 10000 }).toBe(false)
+      }
+    } finally { await unregisterMacBuild(appPath) }
+  }
 }

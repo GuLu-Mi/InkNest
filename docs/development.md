@@ -49,7 +49,11 @@ Windows 本地打包还需安装完整 [7-Zip](https://www.7-zip.org/)：卸载�
 
 Mac 使用 ad-hoc 签名，未完成 Developer ID、公证与正式加固。Windows 不签名，采用可选目录的引导式 NSIS；正常卸载保留 AppData 偏好、恢复和历史。`build/installer.nsh` 是源码：保持安装/卸载图标一致，并在最终产物中校验安装器和嵌入卸载器 CRC，不以关闭 CRC 规避问题。所有打包入口禁止自动 publish。
 
-Mac 测试副本可能进入 LaunchServices；实际包测试后的注销仅针对已确认测试路径，不重置全局数据库、不改变默认关联。隐藏构建目录减少普通扫描，不保证主动运行旧包后仍只有一个系统候选。
+Mac 测试副本运行后可能进入 LaunchServices，隐藏目录不能阻止运行时注册。打包、系统打开验证、打包应用验证及设置了 `INKNEST_PACKAGED_EXECUTABLE` 的 E2E 在退出时定向注销本次使用的构建副本，操作失败时也执行清理；清理失败会使命令失败或验证结果标为未完成。
+
+清理只接受本仓库 `.tooling/mac-builds/<版本>/mac-arm64/InkNest.app`，核对真实路径和 `io.inknest.app` 标识后，调用 macOS 内置 `lsregister -u`。符号链接重定向和不同应用标识拒绝处理；正式安装、下载目录、挂载DMG及非macOS主机跳过。系统明确返回该副本尚未注册时视为无需操作，其他权限、通信及超时错误仍报告失败。脚本不删除应用、不修改包名/版本/默认关联，也不重建系统注册数据库。它只属于开发工具，不进入分发应用；应用身份和文档关联声明仍由macOS正常处理。
+
+手动运行旧构建或进程被强制终止后，可在退出该测试副本后对确切路径执行 `node scripts/macos-app-registration.mjs .tooling/mac-builds/<版本>/mac-arm64/InkNest.app`。注销可由再次运行该副本重新触发注册；保留多个正式安装副本时，Finder仍可能显示版本号以区分它们。
 
 ## 4. 升级版本并发布
 

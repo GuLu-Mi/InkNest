@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { performance } from 'node:perf_hooks'
 import { _electron as electron, expect } from '@playwright/test'
+import { withMacBuildRegistrationCleanup } from './macos-app-registration.mjs'
 
 function assert(condition, message) { if (!condition) throw new Error(message) }
 export function summarize(samples, requiredCount) {
@@ -276,7 +277,21 @@ async function surfaceFlows(executable, workspace, expectedVersion, evidenceDire
   } finally { if (app) await closeApp(app, result); await persist() }
 }
 
-export async function verifyPackagedMac({ appPath, fixtureRoot, evidenceDirectory, output, expectedVersion, phase = 'all', startupSamples = 30 }) {
+export async function verifyPackagedMac(options) {
+  let result
+  try {
+    await withMacBuildRegistrationCleanup(options.appPath, async () => { result = await runPackagedVerification(options) })
+  } catch (error) {
+    if (!result) throw error
+    result.cleanupFailures.push(String(error))
+    result.status = 'incomplete'
+    await writeFile(options.output, `${JSON.stringify(result, null, 2)}\n`)
+    await writeFile(join(options.evidenceDirectory, 'incremental.json'), `${JSON.stringify(result, null, 2)}\n`)
+  }
+  return result
+}
+
+async function runPackagedVerification({ appPath, fixtureRoot, evidenceDirectory, output, expectedVersion, phase = 'all', startupSamples = 30 }) {
   assert(Number.isSafeInteger(startupSamples) && startupSamples >= 1 && startupSamples <= 30, 'startupSamples must be 1..30')
   assert(expectedVersion, 'Provide an independent expected version')
   assert(['all', 'startup', 'running', 'smoke', 'surfaces', 'native-presentation'].includes(phase), 'Unknown verification phase')
