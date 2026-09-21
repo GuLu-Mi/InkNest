@@ -28,3 +28,46 @@
 .markdown-body td code { overflow-wrap: normal; }
 .markdown-body td code.long-token { overflow-wrap: anywhere; }
 .plain-document { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 15px/1.75 ui-monospace, monospace; }
+
+.markdown-body th.align-left, .markdown-body td.align-left { text-align: left; }
+.markdown-body th.align-center, .markdown-body td.align-center { text-align: center; }
+.markdown-body th.align-right, .markdown-body td.align-right { text-align: right; }
+.markdown-body .task-list-item { list-style: none; }
+.markdown-body .task-list-item > input { margin-inline: -1.4em .5em; accent-color: var(--accent); }
+.markdown-body .footnotes { color: var(--text-secondary); font-size: .9em; }
+.markdown-body .footnote-ref, .markdown-body .footnote-backref { white-space: nowrap; }
+.markdown-body dl { margin: 18px 0; }
+.markdown-body dt { font-weight: 600; }
+.markdown-body dd { margin: 4px 0 16px 24px; }
+.markdown-body kbd { padding: 2px 5px; border: 1px solid var(--border-subtle); border-bottom-width: 2px; border-radius: 4px; font: .875em ui-monospace, monospace; background: var(--surface-muted); }
+.markdown-body mark { color: var(--text-primary); background: light-dark(#fff0a3, #685316); }
+.markdown-body details { margin: 18px 0; padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: 5px; }
+.markdown-body summary { cursor: pointer; font-weight: 500; }
+.markdown-body details[open] > summary { margin-bottom: 12px; }
+.markdown-body .markdown-alert { border-left-color: var(--accent); background: var(--surface-muted); border-radius: 3px; padding: 12px 18px; }
+.markdown-body .markdown-alert-warning, .markdown-body .markdown-alert-caution { border-left-color: light-dark(#946400, #e8b758); }
+.markdown-body .alert-title { color: var(--text-primary); font-weight: 600; margin: 0 0 8px; }
+.markdown-body .code-block { margin: 20px 0; border: 1px solid var(--border-subtle); border-radius: 5px; overflow: hidden; }
+.markdown-body .code-block pre { border: 0; border-radius: 0; margin: 0; }
+.markdown-body .code-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; background: var(--surface-muted); border-bottom: 1px solid var(--border-subtle); font: 12px/1.5 ui-monospace, monospace; }
+.markdown-body .code-toolbar > span { margin-right: auto; color: var(--text-secondary); }
+.markdown-body .code-toolbar button { min-height: 28px; padding: 3px 8px; font: 12px/1.5 system-ui, sans-serif; }
+.markdown-body .rich-status { margin: 0; padding: 10px 16px; color: var(--text-secondary); background: var(--surface-muted); font-size: 13px; }
+.markdown-body .diagram-view { padding: 18px; max-width: 100%; overflow: auto; }
+.markdown-body .diagram-view svg { display: block; width: 100%; max-width: 100%; height: auto; margin: auto; }
+.markdown-body .diagram-original svg { max-width: none; }
+.diagram-measure { position: absolute; left: -20000px; top: 0; width: 1080px; visibility: hidden; pointer-events: none; font: 16px Arial, sans-serif; }
+.code-copy-target { position: fixed; left: -20000px; top: 0; opacity: 0; pointer-events: none; }
+.markdown-body .math-display { display: block; max-width: 100%; overflow-x: auto; padding: 12px 4px; margin: 16px 0; }
+.markdown-body .math-rendered math { font-size: 1.12em; }
+.markdown-body .math-error { font-family: ui-monospace, monospace; text-decoration: underline dotted; text-underline-offset: 4px; }
+.markdown-body .math-error-hint { font: .8em system-ui, sans-serif; color: var(--text-secondary); }
+.markdown-body .hljs { color: var(--text-primary); }
+.markdown-body .hljs-comment, .markdown-body .hljs-quote { color: light-dark(#60705e, #94aa8d); }
+.markdown-body .hljs-keyword, .markdown-body .hljs-selector-tag, .markdown-body .hljs-literal, .markdown-body .hljs-name { color: light-dark(#a22268, #ee94bd); }
+.markdown-body .hljs-string, .markdown-body .hljs-regexp, .markdown-body .hljs-addition { color: light-dark(#256a3c, #91c998); }
+.markdown-body .hljs-number, .markdown-body .hljs-attr, .markdown-body .hljs-variable, .markdown-body .hljs-template-variable { color: light-dark(#8b501d, #e4b47f); }
+.markdown-body .hljs-title, .markdown-body .hljs-type, .markdown-body .hljs-built_in { color: light-dark(#2159a3, #91b8fa); }
+.markdown-body .hljs-deletion { color: light-dark(#ac3333, #f2a1a1); }
+.markdown-body .hljs-emphasis { font-style: italic; }
+.markdown-body .hljs-strong { font-weight: 600; }

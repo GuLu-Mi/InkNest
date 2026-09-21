@@ -8,6 +8,8 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { OpenDocument, ScrollBookmark, SessionRef } from '../../../shared/contracts'
 import { copy, resourceCopy } from '../../../shared/copy'
 import { buildPreview } from './pipeline'
+import { codeAction, enhancePreview } from './rich-content'
+import { darkTheme } from '../theme'
 import type { ParsedDocument, PreviewImage } from './document-model'
 const props = defineProps<{ document: OpenDocument; bookmark: ScrollBookmark; parsed: ParsedDocument | null; sourceKey: string; interactive?: boolean }>()
 const emit = defineEmits<{ searchSurface: [value: SearchSurface | null]; searchBlocked: [value: boolean]; bookmark: [ref: SessionRef, value: ScrollBookmark]; active: [key: string, id: string]; link: [target: string]; notice: [message: string] }>()
@@ -39,13 +41,14 @@ function captureVisibleAnchor(): void {
   }
   visibleAnchor = target ? { target, offset: target.getBoundingClientRect().top - viewport.top, atStart: scrollHost.scrollTop < 1 } : null
 }
-function restoreVisibleAnchor(): void {
+function restoreVisibleAnchor(force = false): void {
   if (!scrollHost || !host.value || !restored) return
-  if (contentWidth === host.value.getBoundingClientRect().width && viewportHeight === scrollHost.clientHeight) return
+  if (!force && contentWidth === host.value.getBoundingClientRect().width && viewportHeight === scrollHost.clientHeight) return
   const anchor = visibleAnchor
   if (anchor) {
     const node = anchor.target instanceof Range ? anchor.target.startContainer : anchor.target
-    if (host.value.contains(node)) {
+    const rectangle = anchor.target.getBoundingClientRect()
+    if (host.value.contains(node) && (rectangle.width > 0 || rectangle.height > 0)) {
       scrollHost.scrollTop = anchor.atStart ? 0 : scrollHost.scrollTop + anchor.target.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top - anchor.offset
     }
   }
@@ -80,12 +83,13 @@ async function restoreScroll(): Promise<void> {
 onMounted(() => {
   scrollHost = host.value?.closest<HTMLElement>('.document-stage') ?? null
   scrollHost?.addEventListener('scroll', recordScroll)
-  resizeObserver = new ResizeObserver(restoreVisibleAnchor)
+  resizeObserver = new ResizeObserver(() => restoreVisibleAnchor())
   if (host.value) resizeObserver.observe(host.value)
   if (scrollHost) resizeObserver.observe(scrollHost)
   if (props.document.readOnlyReason === 'size') void restoreScroll()
 })
 const html = ref('')
+const renderedVersion = ref(0)
 const linkTargets = ref<string[]>([])
 const gallery = ref<PreviewImage[]>([])
 const viewer = ref<{ items: { url: string; label: string; target: string; loading: boolean }[]; index: number } | null>(null)
@@ -99,9 +103,20 @@ watch(() => props.sourceKey, () => { viewer.value = null; pendingAnchor = null }
 const loading = ref(false)
 const error = ref('')
 let generation = 0
+let enhancement: AbortController | null = null
 let pendingHeading: { id: string; generation: number } | null = null
+function enhance(current: number): void {
+  enhancement?.abort(); enhancement = new AbortController()
+  const signal = enhancement.signal
+  const root = host.value?.querySelector<HTMLElement>('.preview')
+  if (root && !error.value) void enhancePreview(root, darkTheme.value, signal, () => {
+    if (current === generation) { searchReady(); restoreVisibleAnchor(true); updateActive() }
+  }).catch(() => { /* Cancelled work belongs to an older source or theme. */ })
+}
+watch(darkTheme, () => { if (contentReady) enhance(generation) })
 watch([() => props.parsed, () => props.document.displayPath], async () => {
   const current = ++generation
+  enhancement?.abort()
   contentReady = false
   emit('searchSurface', null)
   viewer.value = null; linkTargets.value = []
@@ -113,12 +128,17 @@ watch([() => props.parsed, () => props.document.displayPath], async () => {
   loading.value = true; error.value = ''
   try {
     const result = await buildPreview(props.parsed, snapshot, window.inknest)
-    if (current === generation) { html.value = result.html; linkTargets.value = result.links ?? []; gallery.value = result.images ?? [] }
+    if (current === generation) {
+      html.value = result.html; renderedVersion.value++; linkTargets.value = result.links ?? []; gallery.value = result.images ?? []
+    }
   } catch { if (current === generation) error.value = copy.previewFailed }
   finally {
     if (current === generation) {
       loading.value = false; await restoreScroll()
-      if (current === generation) { contentReady = true; searchReady(); finishNavigation(current) }
+      if (current === generation) {
+        contentReady = true; searchReady(); finishNavigation(current)
+        enhance(current)
+      }
     }
   }
 }, { immediate: true })
@@ -141,6 +161,7 @@ function revealHeading(id: string): void {
   pendingHeading = null
   const heading = [...(host.value?.querySelectorAll<HTMLElement>('h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]') ?? [])].find(node => node.id === id)
   if (!heading || !scrollHost) return
+  for (let details = heading.closest('details'); details; details = details.parentElement?.closest('details') ?? null) details.open = true
   scrollHost.scrollTop += heading.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top - 24
   heading.focus({ preventScroll: true }); captureVisibleAnchor(); recordScroll()
   emit('active', props.sourceKey, id)
@@ -148,10 +169,11 @@ function revealHeading(id: string): void {
 function revealAnchor(fragment: string): void {
   if (!contentReady || !props.parsed) { pendingAnchor = fragment; return }
   if (!fragment && scrollHost) { scrollHost.scrollTop = 0; captureVisibleAnchor(); recordScroll(); return }
-  const anchor = resolveAnchor(props.parsed, fragment)
+  const anchor = /^inknest-footnote-fn(?:ref)?\d+(?:-\d+)?$/u.test(fragment) ? { id: fragment } : resolveAnchor(props.parsed, fragment)
   if (!anchor) { emit('notice', '未找到对应章节'); return }
   const target = [...(host.value?.querySelectorAll<HTMLElement>('[id]') ?? [])].find(node => node.id === anchor.id)
   if (!target || !scrollHost) { emit('notice', '未找到对应章节'); return }
+  for (let details = target.closest('details'); details; details = details.parentElement?.closest('details') ?? null) details.open = true
   scrollHost.scrollTop += target.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top - 24
   target.focus({ preventScroll: true }); captureVisibleAnchor(); recordScroll()
 }
@@ -191,20 +213,27 @@ function trackPointer(event: PointerEvent): void {
   if (event.type === 'pointerup' || event.type === 'pointercancel') pointerOrigin = null
 }
 function activateContent(event: MouseEvent | KeyboardEvent): void {
-  if (!props.interactive || !(event.target instanceof Element)) return
+  if (!(event.target instanceof Element)) return
+  if (event.target.closest('button[data-code-action]')) {
+    const activate = event instanceof MouseEvent ? event.button === 0 && !pointerDragged : event.key === 'Enter' || event.key === ' '
+    if (activate) { event.preventDefault(); void codeAction(event.target, message => emit('notice', message), searchReady) }
+    return
+  }
   if (event instanceof MouseEvent && pointerDragged) { event.preventDefault(); return }
   const image = event.target.closest<HTMLImageElement>('img[src]')
   const anchor = event.target.closest<HTMLElement>('a[data-link-index]')
   const target = anchor ? linkTargets.value[Number(anchor.dataset.linkIndex)] : undefined
   const modified = linkGesture(event, /Mac/.test(navigator.platform))
   const plain = event instanceof KeyboardEvent ? (event.key === 'Enter' || event.key === ' ') && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey : event.button === 0 && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+  if (target?.startsWith('#inknest-footnote-') && (plain || modified)) { event.preventDefault(); revealAnchor(target.slice(1)); return }
+  if (!props.interactive) return
   if (image && target && isLocalImageLink(target) && plain) { event.preventDefault(); image.focus({ preventScroll: true }); emit('link', target); return }
   if (image && (plain || (modified && !target))) { event.preventDefault(); image.focus({ preventScroll: true }); openImage(image.src, image.alt || '图片'); return }
   if (anchor) event.preventDefault()
   if (target && (modified || (plain && isLocalImageLink(target)))) { anchor?.focus({ preventScroll: true }); emit('link', target) }
 }
 defineExpose({ recordScroll, revealHeading, revealAnchor, openImage })
-onBeforeUnmount(() => { emit('searchSurface', null); viewer.value = null; recordScroll(); resizeObserver?.disconnect(); visibleAnchor = null; scrollHost?.removeEventListener('scroll', recordScroll); scrollHost = null; pendingHeading = null; generation++ })
+onBeforeUnmount(() => { enhancement?.abort(); emit('searchSurface', null); viewer.value = null; recordScroll(); resizeObserver?.disconnect(); visibleAnchor = null; scrollHost?.removeEventListener('scroll', recordScroll); scrollHost = null; pendingHeading = null; generation++ })
 function imageFailed(event: Event): void {
   const image = event.target
   if (!(image instanceof HTMLImageElement)) return
@@ -248,6 +277,7 @@ function imageFailed(event: Event): void {
     <!-- eslint-disable vue/no-v-html -->
     <article
       v-else
+      :key="renderedVersion"
       class="preview markdown-body"
       @error.capture="imageFailed"
       @pointerdown="beginPointer"
@@ -256,6 +286,7 @@ function imageFailed(event: Event): void {
       @pointercancel="trackPointer"
       @click="activateContent"
       @keydown="activateContent"
+      @toggle.capture="searchReady"
       v-html="html"
     />
   </section>

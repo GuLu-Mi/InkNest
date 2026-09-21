@@ -1,6 +1,6 @@
 # 依赖与工具链登记
 
-关联 REQ-002/004/005/006/010/011/021/025、NFR-002–006/008。
+关联 REQ-002/004/005/006/010/011/021/025/030、NFR-002–006/008。
 
 以下为 package.json 和锁文件指定的版本。许可字段来自包元数据，完整传递依赖与 integrity 以 package-lock.json 为准；分发时保留相应 LICENSE/NOTICE。
 
@@ -22,6 +22,17 @@
 | `@codemirror/view` | 6.43.12 | MIT | 编辑视图与 CSP nonce |
 | `dompurify` | 3.4.15 | (MPL-2.0 OR Apache-2.0) | 预览净化 |
 | `markdown-it` | 15.0.2 | MIT | Markdown 解析 |
+| `highlight.js` | 11.12.0 | BSD-3-Clause | 预览代码高亮 |
+| `katex` | 0.18.7 | MIT | 离线公式 MathML |
+| `mermaid` | 12.0.0 | MIT | 离线图表 SVG |
+| `markdown-it-deflist` | 4.0.0 | MIT | 定义列表 |
+| `markdown-it-emoji` | 3.1.0 | MIT | Emoji 短码 |
+| `markdown-it-footnote` | 4.0.0 | MIT | 脚注与返回 |
+| `markdown-it-mark` | 4.0.0 | MIT | 标记 |
+| `markdown-it-sub` | 2.0.0 | MIT | 下标 |
+| `markdown-it-sup` | 2.0.0 | MIT | 上标 |
+| `markdown-it-task-lists` | 2.1.1 | ISC | 只读任务列表 |
+| `markdown-it-texmath` | 1.0.0 | MIT | 公式块分隔符解析 |
 | `sharp` | 0.35.4 | Apache-2.0 | 图片元数据与目标平台原生库 |
 | `vue` | 3.5.42 | MIT | 界面 |
 | `write-file-atomic` | 8.0.0 | ISC | 同目录原子替换 |
@@ -55,7 +66,8 @@
 - sharp 与 @img 原生文件通过 asarUnpack 解包；当前 npmRebuild:false 不改变目标架构检查要求。平台包中的 libvips/编解码库许可证应随分发保留，不能只列 sharp 的 Apache-2.0。
 - electron-builder 26.15.3 的 NSIS 工具集固定 1.2.1，下载校验由工具配置保留。Mac 提取卸载器的图标补丁兼容问题通过 UninstallIcon 配置及最终双 CRC 验证处理；不修改依赖源码或关闭完整性检查。
 - Windows 的最终卸载器校验使用完整 7-Zip 的 `7z.exe` / `7z.dll`，不能使用 electron-builder 自带的精简 `7za.exe`。macOS 使用 builder 工具集中包含 NSIS 解包能力的 `7zz`（入口名为 `7za`）；工具配置见[开发与构建](development.md)。
-- CodeMirror 搜索只使用 SearchCursor，不挂载另一套编辑器或默认搜索面板。预览高亮库尚未引入；编辑器语法高亮不应用于预览。
+- CodeMirror 搜索只使用 SearchCursor，不挂载另一套编辑器或默认搜索面板。预览高亮独立使用 highlight.js common 语言集，不复用或重建编辑器。
+- Mermaid、KaTeX、高亮均随包分发并按需加载；KaTeX 输出 MathML，不加载网络字体。Mermaid 生成样式需通过应用过滤并使用窗口 nonce，不放宽 CSP。升级时验证所有样本图型、失败降级、两主题、布局和恶意输入。
 
 ## 升级与许可
 

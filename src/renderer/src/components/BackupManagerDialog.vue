@@ -3,9 +3,34 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { copy } from '../../../shared/copy'
 import type { RecoveryEntry } from '../../../shared/contracts'
 import { buildPreview } from '../preview/pipeline'
+import { codeAction, enhancePreview } from '../preview/rich-content'
+import { darkTheme } from '../theme'
 const props = defineProps<{ open: boolean; disabled: boolean; welcome: boolean }>()
 const emit = defineEmits<{ close: []; found: [count: number]; failure: [message: string]; cleaned: [] }>()
 const dialog = ref<HTMLDialogElement>(); const recovery = ref<RecoveryEntry[]>([]); const preview = ref(''); const error = ref(''); const notice = ref(''); const working = ref(false)
+const previewHost = ref<HTMLElement>()
+let enhancement: AbortController | null = null
+let previewLinks: string[] = []
+watch([preview, darkTheme], async () => {
+  enhancement?.abort(); const current = new AbortController(); enhancement = current
+  await nextTick()
+  if (!current.signal.aborted && props.open && previewHost.value) void enhancePreview(previewHost.value, darkTheme.value, current.signal, () => {}).catch(() => {})
+})
+function previewAction(event: MouseEvent | KeyboardEvent): void {
+  if (!(event.target instanceof Element)) return
+  if (event instanceof KeyboardEvent && event.key !== 'Enter' && event.key !== ' ') return
+  if (event instanceof MouseEvent && event.button !== 0) return
+  if (event.target.closest('button[data-code-action]')) { event.preventDefault(); void codeAction(event.target, message => { notice.value = message }, () => {}); return }
+  const anchor = event.target.closest<HTMLElement>('a[data-link-index]')
+  const target = anchor ? previewLinks[Number(anchor.dataset.linkIndex)] : ''
+  if (!target?.startsWith('#inknest-footnote-')) return
+  const node = [...(previewHost.value?.querySelectorAll<HTMLElement>('[id]') ?? [])].find(node => node.id === target.slice(1))
+  if (node) {
+    event.preventDefault()
+    for (let details = node.closest('details'); details; details = details.parentElement?.closest('details') ?? null) details.open = true
+    node.scrollIntoView({ block: 'nearest' }); node.focus({ preventScroll: true })
+  }
+}
 let sequence = 0; let refreshSequence = 0
 async function refresh(): Promise<void> {
   const current = ++refreshSequence
@@ -24,7 +49,7 @@ async function action(kind: 'inspect' | 'restore' | 'discard' | 'clear-recovery'
     if (current !== sequence) return
     if (result.status === 'error') error.value = result.error.message
     else if (result.status === 'ok') {
-      if (kind === 'inspect' && typeof result.value === 'string') { const resultPreview = await buildPreview(result.value, null, window.inknest); if (current === sequence) preview.value = resultPreview.html }
+      if (kind === 'inspect' && typeof result.value === 'string') { const resultPreview = await buildPreview(result.value, null, window.inknest); if (current === sequence) { preview.value = resultPreview.html; previewLinks = resultPreview.links ?? [] } }
       else if (kind === 'restore') emit('close')
       else { preview.value = ''; if (kind.startsWith('clear')) notice.value = copy.cleanupDone; if (kind === 'clear-history') emit('cleaned') }
     }
@@ -35,7 +60,7 @@ async function action(kind: 'inspect' | 'restore' | 'discard' | 'clear-recovery'
 watch(() => props.open, async open => { await nextTick(); if (open) { dialog.value?.showModal(); void refresh() } else { sequence++; preview.value = ''; dialog.value?.close() } })
 watch(() => props.welcome, welcome => { if (welcome) void refresh() })
 onMounted(() => { void refresh(); if (props.open) dialog.value?.showModal() })
-onBeforeUnmount(() => { sequence++; refreshSequence++; dialog.value?.close() })
+onBeforeUnmount(() => { enhancement?.abort(); sequence++; refreshSequence++; dialog.value?.close() })
 </script>
 <template>
   <dialog
@@ -118,9 +143,12 @@ onBeforeUnmount(() => { sequence++; refreshSequence++; dialog.value?.close() })
       <!-- eslint-disable vue/no-v-html -->
       <article
         v-if="preview"
+        ref="previewHost"
         class="markdown-body backup-preview"
         :aria-label="copy.backupBody"
         tabindex="0"
+        @click="previewAction"
+        @keydown="previewAction"
         v-html="preview"
       />
     </div>

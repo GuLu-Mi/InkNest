@@ -1,8 +1,10 @@
 # 数据与接口契约
 
-关联 REQ-001/006–017/019–024/026–029、NFR-001/002/008。本页描述当前公开业务接口；产品目标见[需求](requirements.md)，未来能力不预先开放。
+关联 REQ-001/006–017/019–024/026–030、NFR-001/002/008。本页描述当前公开业务接口；产品目标见[需求](requirements.md)，未来能力不预先开放。
 
 精确 TypeScript 声明位于 [shared/contracts.ts](../src/shared/contracts.ts)，暴露实现位于 [preload/index.ts](../src/preload/index.ts)。当前 **24 个 invoke 方法 + 1 个事件订阅方法**，没有通用 IPC、Node、shell、任意路径读写或执行命令入口。
+
+Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能力，复用已有来源和资源契约，不新增 preload 方法。生成的 SVG/MathML/HTML、图表查看方式和折叠状态不属于 ContentSnapshot，不送入保存、恢复或历史正文。
 
 ## 身份与状态
 

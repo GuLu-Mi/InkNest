@@ -1,6 +1,6 @@
 # 安全与隐私边界
 
-关联 REQ-006/007/010–016/021/022/028/029、NFR-001/002/008。
+关联 REQ-006/007/010–016/021/022/028/029/030、NFR-001/002/008。
 
 ## 1. 信任模型
 
@@ -18,9 +18,13 @@ BrowserWindow 固定 `nodeIntegration: false`、`contextIsolation: true`、`sand
 
 ## 3. 预览与 CSP
 
-markdown-it 关闭原始 HTML，DOMPurify 使用标签/属性白名单。文内显式锚点是解析器识别的受限语法，生成应用自己的 ID，不开放任意 HTML。表格滚动容器、标题焦点、图片交互和搜索排除标记在净化后由应用生成，不让 Markdown 提供任意 class/style/事件。
+markdown-it 关闭通用原始 HTML，只解析[兼容清单](markdown.md)中无属性格式标签、受限折叠与空锚点语法；DOMPurify 使用标签/属性白名单。文内显式锚点是解析器识别的受限语法，生成应用自己的 ID，不开放任意 HTML。表格滚动容器、标题焦点、图片交互和搜索排除标记在净化后由应用生成，不让 Markdown 提供任意 class/style/事件。
 
 CSP 限制脚本、连接、资源及样式来源；CodeMirror 通过本次窗口生成的 nonce 使用所需样式，不关闭 CSP 或沙盒。图片先在惰性 template 中提取原目标并移除 src，授权、替换为资源 URL、净化后才进入活动 DOM，避免原始 URL 自动联网。
+
+Mermaid 配置由应用固定为 strict，文档不能提供初始化/YAML 配置；不绑定图表点击回调。输出再次按 SVG 配置净化，移除链接、图片、foreignObject、脚本和动画。生成样式只接受当前图表 ID 下的选择器及有限声明，禁止外部 URL、CSS 自定义属性和布局逃逸；最终样式使用窗口 nonce。图表生成过程仍受原 CSP 与网络阻断约束。
+
+KaTeX 固定 trust:false、strict:error、MathML 输出和宏展开上限，每式独立宏空间；再次净化 MathML，移除链接及可执行标注。代码高亮输出只允许 span/class。复制由用户点击/键盘触发浏览器剪贴板写入，不开放读取剪贴板或新增 IPC。以上内容不得回写源码，不扩大本地图片或远程资源授权。
 
 ## 4. 被动图片与主动链接
 

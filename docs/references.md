@@ -12,6 +12,9 @@
 | [CodeMirror系统指南](https://codemirror.net/docs/guide/) | 编辑状态与事务、选区、扩展和历史模型 |
 | [CodeMirror参考](https://codemirror.net/docs/ref/) | EditorState/EditorView接口，执行时按锁定版本核查 |
 | [markdown-it](https://github.com/markdown-it/markdown-it) | Markdown解析与扩展机制，兼容范围需应用定义 |
+| [Mermaid](https://mermaid.js.org/config/usage.html) | strict 模式、应用管理配置、异步 SVG 绘制 |
+| [KaTeX](https://katex.org/docs/options.html) | trust、宏展开限制与 MathML 输出 |
+| [highlight.js](https://highlightjs.readthedocs.io/en/latest/api.html) | 显式语言高亮与 common 语言集 |
 | [DOMPurify](https://github.com/cure53/DOMPurify) | HTML过滤能力及过滤后修改输出的风险 |
 | [Node文件系统](https://nodejs.org/api/fs.html) | 并发writeFile限制、文件监测差异和文件替换相关行为 |
 | [write-file-atomic](https://www.npmjs.com/package/write-file-atomic) | 临时写入、替换及同文件排队的基础能力 |

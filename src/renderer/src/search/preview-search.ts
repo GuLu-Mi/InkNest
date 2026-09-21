@@ -15,12 +15,18 @@ export function previewSearchSurface(root: HTMLElement): SearchSurface {
     if (documentText) return documentText
     const parts: string[] = [], built: Run[] = []
     let offset = 0, previousBlock: Element | null = null, lastSpace = true, tick = performance.now()
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, { acceptNode: node => (node instanceof Element ? node : node.parentElement)?.closest('[data-search-ignore], [hidden], [aria-hidden="true"], button,script,style') ? NodeFilter.FILTER_REJECT : node.nodeType === Node.TEXT_NODE || (node instanceof HTMLBRElement) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP })
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, { acceptNode: node => {
+      const element = node instanceof Element ? node : node.parentElement
+      if (element?.closest('[data-search-ignore], [hidden], [aria-hidden="true"], button,script,style,defs,title,desc,annotation')) return NodeFilter.FILTER_REJECT
+      const folded = element?.closest('details:not([open])')
+      if (folded && element !== folded && !folded.querySelector(':scope > summary')?.contains(element ?? null)) return NodeFilter.FILTER_REJECT
+      return node.nodeType === Node.TEXT_NODE || (node instanceof HTMLBRElement) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+    } })
     let next: Node | null
     while ((next = walker.nextNode())) {
       if (next instanceof HTMLBRElement) { parts.push('\n'); offset++; lastSpace = true; continue }
       const node = next as Text, parent = node.parentElement!
-      const block = parent.closest('p,h1,h2,h3,h4,h5,h6,li,td,th,pre,blockquote') ?? root
+      const block = parent.closest('p,h1,h2,h3,h4,h5,h6,li,td,th,pre,blockquote,summary,dt,dd,text') ?? root
       if (block !== previousBlock) { parts.push('\n'); offset++; previousBlock = block; lastSpace = true }
       const pre = !!parent.closest('pre')
       const raw = node.data
@@ -102,7 +108,7 @@ export function previewSearchSurface(root: HTMLElement): SearchSurface {
     reveal: hit => {
       const selected = range(hit); if (!selected) return
       let rect = selected.getBoundingClientRect()
-      const horizontal = selected.startContainer.parentElement?.closest<HTMLElement>('pre,.table-scroll')
+      const horizontal = selected.startContainer.parentElement?.closest<HTMLElement>('pre,.table-scroll,.diagram-view,.math-display')
       if (horizontal && horizontal.scrollWidth > horizontal.clientWidth) {
         const host = horizontal.getBoundingClientRect()
         if (rect.left < host.left || rect.right > host.right) horizontal.scrollLeft += rect.left - host.left - 24

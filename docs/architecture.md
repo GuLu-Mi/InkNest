@@ -9,7 +9,7 @@
 | 桌面 | Electron 44.4.1 | 单实例、单窗口；系统能力集中 main |
 | 界面 | Vue 3、TypeScript strict | 无 Node、无任意文件 API |
 | 编辑 | CodeMirror 6 | 每文档一个 EditorState，只有活动 EditorView 挂载 |
-| 预览 | markdown-it、DOMPurify | 共享 token 解析，raw HTML 关闭；任务列表插件和预览高亮尚未引入 |
+| 预览 | markdown-it、DOMPurify | 共享 token 解析与受限扩展；高亮、Mermaid、KaTeX 按需加载 |
 | 搜索 | @codemirror/search SearchCursor | 字面扫描；源码/净化正文分别适配，非第二份可写文档 |
 | 图片 | sharp 元数据 + Chromium 展示 | 本地格式、像素、会话配额和能力 URL |
 | 写入 | write-file-atomic | 库处理暂存/fsync/替换，业务负责版本核对和队列 |
@@ -58,6 +58,10 @@ main 启动即注册 open-file、单实例锁和 argv；`SystemOpenQueue` 合批
 
 图片查看器 `ImageViewer.vue` 持有临时倍率、角度及适应状态；`preview/image-viewer.ts` 计算滚轮增量、倍率边界、旋转尺寸和坐标。旋转后的容器宽高负责滚动占位，内部原始 `img` 负责展示；缩放按帧合并并补偿锚点，切图/关闭撤销待处理帧和布局回调。资源 URL、原始图片和文档会话不参与这些展示状态变更。
 
+`preview/extensions.ts` 只识别文档化的格式与折叠语法；任务、脚注等使用固定版本插件。`pipeline.ts` 在惰性模板中提取资源、表格对齐和脚注位置，净化后只恢复应用生成的类名、ID 与滚动控件。
+
+`rich-content.ts` 在净化且挂载的 DOM 上按需绘制代码、公式与图表。KaTeX 生成再净化的 MathML，Mermaid 严格模式生成再净化的 SVG；样式限定在当前图表，使用窗口 nonce。图表全局队列串行，AbortSignal 和预览代数共同拒绝旧来源结果，卸载移除测量容器；无正文级永久缓存。这些库生成的显示结果不进入保存路径，容量与降级见 [Markdown 兼容性](markdown.md)。
+
 ## 搜索、历史与演示展示
 
 搜索由 `use-document-search.ts` 按来源维护查询和取消代数。阅读适配对净化后的正文 Text 节点建立索引，CSS Custom Highlight 不改正文 DOM；编辑适配读取原 EditorState，使用可见范围 Decoration。匹配坐标存紧凑数组，扫描分段让出事件循环；完整计数不靠截断结果完成。
@@ -70,7 +74,7 @@ main 启动即注册 open-file、单实例锁和 argv；`SystemOpenQueue` 合批
 
 ## 主题与布局
 
-main `ThemeStore` 管理 version1 `theme.json`，默认 system，手动只允许 light/dark；写入串行，损坏回退并在后续写入前保留损坏副本。renderer 按意图序号接纳响应，根级颜色统一过渡，不重建正文。
+main `ThemeStore` 管理 version1 `theme.json`，默认 system，手动只允许 light/dark；写入串行，损坏回退并在后续写入前保留损坏副本。renderer 按意图序号接纳响应，根级颜色统一过渡，不重建可写文档状态；只读预览仅替换图表输出，不重建基础正文、不重新授权图片，保留折叠区与图表查看方式；保存和撤销不受影响。
 
 `panel-layout.ts` 管理 280/300px、30% 上限、960px 共存断点和对称留白；窄屏非模态并排。正文 scroll host 与 1080px 内容宽度分离。搜索浮层测量空间，显隐不改变工具栏几何。
 

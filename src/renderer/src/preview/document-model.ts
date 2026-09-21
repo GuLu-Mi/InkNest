@@ -37,7 +37,7 @@ export function parseDocument(text: string): ParsedDocument {
     if (token.type !== 'heading_open') continue
     const level = Number(token.tag.slice(1))
     while (parents.length && parents.at(-1)!.level >= level) parents.pop()
-    const title = (tokens[i + 1]?.children ?? []).map(child => child.type === 'softbreak' || child.type === 'hardbreak' ? ' ' : child.type === 'text' || child.type === 'code_inline' || child.type === 'image' ? child.content : '').join('')
+    const title = (tokens[i + 1]?.children ?? []).map(child => child.type === 'softbreak' || child.type === 'hardbreak' ? ' ' : child.type === 'text' || child.type === 'inknest_literal_html' || child.type === 'code_inline' || child.type === 'image' || child.type === 'emoji' || child.type.startsWith('math_inline') ? child.content : '').join('')
     const heading = { id: `inknest-heading-${headings.length}`, title, level, sourceLine: token.map?.[0] ?? 0, parentId: parents.at(-1)?.id ?? null }
     headings.push(heading); parents.push(heading)
   }

@@ -9,6 +9,18 @@ export async function buildPreview(source: string | ParsedDocument, ref: Session
   // Template contents are inert: original image URLs never enter the active DOM.
   const template = document.createElement('template')
   template.innerHTML = parsed.html
+  const alignments = [...template.content.querySelectorAll('th,td')].map(cell => {
+    // Read the parser's exact declaration without applying inline CSS under CSP.
+    return /^text-align:(left|center|right);?$/u.exec(cell.getAttribute('style') ?? '')?.[1] ?? ''
+  })
+  const footnotes = new Map([...template.content.querySelectorAll('li,sup')].flatMap((element, index) => {
+    const id = element.getAttribute('id') ?? (element.tagName === 'SUP' ? element.querySelector('a')?.getAttribute('id') : null)
+    return id && /^fn(?:ref)?\d+(?::\d+)?$/u.test(id) ? [[index, `inknest-footnote-${id.replace(':', '-')}`] as const] : []
+  }))
+  for (const anchor of template.content.querySelectorAll('a')) {
+    const target = anchor.getAttribute('href')
+    if (target && /^#fn(?:ref)?\d+(?::\d+)?$/u.test(target)) anchor.setAttribute('href', `#inknest-footnote-${target.slice(1).replace(':', '-')}`)
+  }
   const images = [...template.content.querySelectorAll('img')]
   const gallery: PreviewImage[] = [...template.content.querySelectorAll('a,img')].flatMap(node => {
     const target = node.getAttribute(node.tagName === 'IMG' ? 'src' : 'href') ?? ''
@@ -54,6 +66,14 @@ export async function buildPreview(source: string | ParsedDocument, ref: Session
   }))
   // Sanitize the document before adding app-owned scroll containers and focus targets.
   template.innerHTML = sanitizePreview(template.innerHTML)
+  for (const [index, cell] of [...template.content.querySelectorAll('th,td')].entries()) {
+    const align = alignments[index]
+    if (align) cell.classList.add(`align-${align}`)
+  }
+  for (const [index, element] of [...template.content.querySelectorAll<HTMLElement>('li,sup')].entries()) {
+    const id = footnotes.get(index)
+    if (id) { element.id = id; element.tabIndex = -1 }
+  }
   for (const [index, span] of [...template.content.querySelectorAll('span')].entries()) {
     if (ignored.has(index)) span.dataset.searchIgnore = ''
     const id = anchorTargets.get(index)
@@ -61,7 +81,7 @@ export async function buildPreview(source: string | ParsedDocument, ref: Session
   }
   for (const [index, anchor] of [...template.content.querySelectorAll('a')].entries()) {
     anchor.dataset.linkIndex = String(index); anchor.tabIndex = 0; anchor.setAttribute('role', 'link')
-    anchor.title = isLocalImageLink(links[index] ?? '') ? '单击查看图片' : /Mac/.test(navigator.platform) ? 'Command＋单击打开链接' : 'Ctrl＋单击打开链接'
+    anchor.title = links[index]?.startsWith('#inknest-footnote-') ? '单击跳转脚注' : isLocalImageLink(links[index] ?? '') ? '单击查看图片' : /Mac/.test(navigator.platform) ? 'Command＋单击打开链接' : 'Ctrl＋单击打开链接'
   }
   for (const image of template.content.querySelectorAll('img')) { image.tabIndex = 0; image.setAttribute('role', 'button'); image.title = '单击查看图片'; image.draggable = false }
   for (const [index, heading] of [...template.content.querySelectorAll('h1,h2,h3,h4,h5,h6')].entries()) {
