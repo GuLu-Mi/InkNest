@@ -56,13 +56,15 @@ Mac 测试副本可能进入 LaunchServices；实际包测试后的注销仅针�
 仓库包含手动触发的 [Build installers 工作流](../.github/workflows/build-installers.yml)，分别在 macOS arm64 和 Windows x64 runner 上构建安装包。
 
 1. 将源码连同 `.github/workflows/build-installers.yml` 推送到 GitHub 仓库的默认分支。
-2. 打开仓库的 **Actions → Build installers → Run workflow**，选择需要构建的分支并运行。
+2. 打开仓库的 **Actions → Build installers → Run workflow**，选择 `main` 并运行。
 3. 等待两个任务成功，在该次运行页面的 **Artifacts** 下载对应平台的压缩包。
 4. 解压获得 `InkNest-0.1.0-mac-arm64.dmg` 或 `InkNest-0.1.0-win-x64.exe`。
 
 工作流使用锁定的 Node/npm 与锁文件，执行 lint、打包工具测试、类型检查、构建和产物版本/架构检查。Windows 打包同时校验安装器和内嵌卸载器 CRC。它不运行图形 E2E，也不替代目标系统的安装、输入法和保存恢复测试。
 
 仅手动运行时构建，推送代码和创建标签不会触发。产物保留 14 天，不会自动创建或发布 GitHub Release。如需长期提供下载，可在 **Releases → Draft a new release** 选择 `v0.1.0` 标签，上传解压后的安装包并填写版本说明。
+
+也可使用手动触发的 [Publish release 工作流](../.github/workflows/publish-release.yml)发布已有构建：先将 `v<版本号>` 标签指向成功的 `main` 构建提交，并保存同名、没有附件的 Release 草稿及版本说明。然后在 `main` 上运行 Publish release，填写构建运行编号和标签。工作流核对来源、版本与提交，下载两端安装包，生成 SHA-256 校验文件，验证上传结果后发布为最新版本。已经发布的 Release 不会被覆盖；普通推送和创建标签不会触发发布。
 
 看不到 Run workflow 按钮时，确认工作流已在默认分支、仓库已启用 Actions，并且当前账号有写入权限。GitHub 操作说明见[手动运行工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)和[下载构建产物](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)。
 
