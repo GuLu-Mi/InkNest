@@ -1,6 +1,6 @@
 import { copy } from '../../shared/copy'
 import { randomUUID } from 'node:crypto'
-import type { AppError, AppEvent, ContentSnapshot, CurrentState, Result, SessionRef } from '../../shared/contracts'
+import type { AppError, AppEvent, ContentSnapshot, CurrentState, Result, SaveReceipt, SaveRequest, SessionRef } from '../../shared/contracts'
 import { SaveCoordinator, saveError, validSnapshotText } from './save-coordinator'
 import type { DocumentRegistry, DocumentSession } from './registry'
 import { readDocument } from './reader'
@@ -11,6 +11,8 @@ export type CloseChoice = 'save' | 'save-as' | 'discard' | 'cancel'
 interface Pending { requestId: string; session: DocumentSession; interactive: boolean; resolve: (allow: boolean) => void; timer: ReturnType<typeof setTimeout>; responding: boolean }
 /** One ref-specific snapshot challenge. Release belongs to WorkspaceCloseCoordinator. */
 export class CloseCoordinator {
+  private untitled?: { choose: (name: string) => Promise<'save' | 'discard' | 'cancel'>; save: (request: SaveRequest, ownerId: number) => Promise<Result<SaveReceipt>> }
+  configureUntitled(handlers: NonNullable<CloseCoordinator['untitled']>): void { this.untitled = handlers }
   private pending: Pending | null = null
   result: Result<void> = { status: 'cancelled' }
   action: 'save-as' | null = null
@@ -48,7 +50,29 @@ export class CloseCoordinator {
       await this.saves.settle(session)
       if (!current()) return invalid
       for (;;) {
-        if (!document.displayPath && !document.readOnlyReason) { this.action = 'save-as'; return finish({ status: 'cancelled' }) }
+        if (!document.displayPath && !document.readOnlyReason) {
+          if (snapshot!.text === '') return finish({ status: 'ok', value: undefined })
+          if (!pending.interactive) { this.action = 'save-as'; return finish({ status: 'cancelled' }) }
+          const choice = await this.untitled?.choose(document.displayName) ?? 'cancel'
+          if (!current()) return invalid
+          if (choice === 'save' && this.untitled) {
+            const saved = await this.untitled.save({ requestId: randomUUID(), snapshot: { ...snapshot! }, expectedDiskToken: null, trigger: 'close' }, session.ownerId)
+            if (!current()) return invalid
+            if (saved.status !== 'ok') return finish(saved)
+            this.send({ type: 'save-receipt', receipt: { ...saved.value, requestId } })
+            if (session.historyAttention && !await this.confirmHistoryLoss(document.displayName)) return finish({ status: 'cancelled' })
+            return current() ? finish({ status: 'ok', value: undefined }) : invalid
+          }
+          if (choice === 'discard' && await this.confirmDiscard(document.displayName)) {
+            if (!current()) return invalid
+            if (!this.recovery) return finish({ status: 'error', error: { code: 'RECOVERY_FAILED', message: copy.discardUnconfirmed, retryable: true } })
+            await this.recovery.discardSession(session, snapshot!)
+            if (!current()) return invalid
+            this.discarded = true
+            return finish({ status: 'ok', value: undefined })
+          }
+          return finish({ status: 'cancelled' })
+        }
         if ((!session.diskStatus || session.diskStatus === 'current') && (document.readOnlyReason || snapshot!.text === document.text)) {
           try {
             const candidate = await readDocument(session.path)

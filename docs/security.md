@@ -10,7 +10,7 @@ Markdown、文件名、链接、图片、外部修改和本地恢复/历史索�
 
 ## 2. Electron 与 IPC
 
-BrowserWindow 固定 `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`、`webSecurity: true`。preload 只暴露冻结的业务 API，当前 25 个方法，包括 24 个 invoke 方法和一个事件订阅；清单见[契约](contracts.md)。无通用 IPC、任意路径读写、Node、shell 或执行命令能力。
+BrowserWindow 固定 `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`、`webSecurity: true`。preload 只暴露冻结的业务 API，当前 26 个方法，包括 25 个 invoke 方法和一个事件订阅；清单见[契约](contracts.md)。无通用 IPC、任意路径读写、Node、shell 或执行命令能力。
 
 每个特权入口核对 main frame、可信 origin、owner 和其业务参数；需要会话的请求验证完整 docId/epoch，拒绝未知字段和不合规 UUID、token、尺寸。文档级操作不通过 renderer 传入任意路径。保存及还原使用 requestId、快照和版本绑定；重放结果也不能跳过调用方和 payload 校验。
 
@@ -55,3 +55,6 @@ KaTeX 固定 trust:false、strict:error、MathML 输出和宏展开上限，每�
 自动化覆盖恶意 Markdown、路径穿越、畸形图像、跨 owner/ref 请求、旧 token、乱序/重复回执、损坏索引和写入失败。安全测试保留完整 API 白名单；新增业务方法必须同步契约和该白名单，不放宽为“包含若干已知方法”。
 
 应用日志不应包含正文、凭据或完整用户文档。反馈问题时移除机器路径、会话标识及截图中的个人内容。兼容性与可靠性边界见[已知限制](known-issues.md)。
+
+
+新建只增加固定零参数 createDocument，不接收路径、正文、docId、模板或配置。main 同步检查窗口所有权、20 标签容量及生命周期门控；无路径会话不授权进程 cwd、被动图片或磁盘历史。原生首存选择器只授权最终选定目标，建议目录不产生额外权限。关闭丢弃仍要求主进程确认和持久标记，renderer 不能用 dirty 布尔量绕过保护。

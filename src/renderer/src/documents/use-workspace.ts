@@ -1,13 +1,13 @@
 import { pendingHistoryRestore, retryHistoryRestoreReceipt as retryHistoryRestoreAction, restoreHistory as restoreHistoryAction } from './history-actions'
 import { copy } from '../../../shared/copy'
 import { computed, onBeforeUnmount, ref, type Ref } from 'vue'
-import type { ConflictAction, ContentSnapshot, LinkOutcome, Result, HistorySnapshot, Mode, OpenDocument, SaveReason, SessionRef } from '../../../shared/contracts'
+import type { ConflictAction, ContentSnapshot, LinkOutcome, Result, HistorySnapshot, Mode, OpenDocument, SaveReason, SaveRequest, SessionRef } from '../../../shared/contracts'
 import { SaveScheduler, observeSaveChanges } from './save-scheduler'
 import { RecoveryScheduler } from './recovery-scheduler'
 import { WorkspaceModel, type TabState } from './workspace'
-export interface ActiveEditor { settleComposition(): Promise<boolean>; setFrozen(value: boolean): void }
+export interface ActiveEditor { settleComposition(): Promise<boolean>; setFrozen(value: boolean): void; focus?(): void }
 const same = (a: SessionRef | null, b: SessionRef) => a?.docId === b.docId && a.epoch === b.epoch
-export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { saveAs?: () => Promise<boolean>; presentation?: () => Promise<void>; find?: (command: 'find' | 'find-next' | 'find-previous') => Promise<void> } = {}) {
+export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { canCreate?: () => boolean; saveAs?: () => Promise<boolean>; presentation?: () => Promise<void>; find?: (command: 'find' | 'find-next' | 'find-previous') => Promise<void> } = {}) {
   const workspace = new WorkspaceModel()
   const signal = ref(0); const busy = ref(false); const workspaceFrozen = ref(false); const globalError = ref('')
   const backupsOpen = ref(false)
@@ -27,6 +27,8 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
   const editingFrozen = computed(() => frozen.value || (session.value?.frozen ?? false))
   const mode = computed(() => { void signal.value; return tab.value?.view.mode ?? 'read' })
   let openingSelections: Map<string, Promise<void>> | null = null
+  const createdSelections = new Map<string, Promise<void>>()
+  const pendingSaveAs = new Map<TabState, SaveRequest>()
   let freezeId: string | null = null
   let freezeReady = Promise.resolve(true)
   const lifecycleOperations = new Map<TabState, Promise<void>>()
@@ -60,6 +62,15 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
     return selection
   }
   const linkedReceipts = new Set<string>()
+  function installCreated(value: OpenDocument): Promise<void> {
+    const key = `${value.docId}/${value.epoch}`
+    const previous = createdSelections.get(key)
+    if (previous) return previous
+    const selection = install(value, null)
+    createdSelections.set(key, selection)
+    if (createdSelections.size > 256) createdSelections.delete(createdSelections.keys().next().value!)
+    return selection
+  }
   function receiveLinked(requestId: string, value: OpenDocument): void {
     if (linkedReceipts.has(requestId)) return
     linkedReceipts.add(requestId)
@@ -108,6 +119,19 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
     } catch { if (origin) origin.error = copy.openFailedRetained; else globalError.value = copy.openFailed }
     finally { openingSelections = null; busy.value = false; workspace.changed() }
   }
+  async function createDocument(): Promise<void> {
+    if (busy.value || editingFrozen.value || surface.canCreate?.() === false) return
+    busy.value = true
+    const origin = tab.value
+    try {
+      if (!await settle() || editingFrozen.value || surface.canCreate?.() === false) return
+      globalError.value = ''; if (origin) origin.error = ''
+      const result = await window.inknest.createDocument()
+      if (result.status === 'ok') await installCreated(result.value)
+      else if (result.status === 'error') { if (origin) origin.error = result.error.message; else globalError.value = result.error.message }
+    } catch { if (origin) origin.error = copy.newFailed; else globalError.value = copy.newFailed }
+    finally { busy.value = false; workspace.changed() }
+  }
   async function closeDocument(ref: SessionRef): Promise<void> {
     const origin = workspace.getTab(ref)
     if (!origin || workspaceFrozen.value || origin.frozen) return
@@ -124,6 +148,7 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
   async function save(): Promise<void> {
     const origin = tab.value
     if (!origin?.session || frozen.value || !await settle() || origin.frozen) return
+    if (!origin.document.displayPath || pendingSaveAs.has(origin)) return saveAs()
     await saveScheduler.flush(origin.document, 'manual')
   }
   async function saveSnapshot(ref: SessionRef, reason: SaveReason): Promise<boolean> {
@@ -188,7 +213,7 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
   }
   function reconcile(ref: SessionRef): Promise<void> {
     const origin = workspace.getTab(ref)
-    if (!origin) return Promise.resolve()
+    if (!origin || !origin.document.displayPath) return Promise.resolve()
     pendingExternal.set(ref.docId, ref)
     if (workspaceFrozen.value || hasClosing(origin) || lifecycleOperations.has(origin) || same(historyRestorePending.value?.ref ?? null, ref)) return Promise.resolve()
     return runFrozen(origin, async () => {
@@ -230,16 +255,31 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
     const origin = tab.value
     if (!origin || !workspace.canSaveAs(origin.document) || frozen.value) return
     await runFrozen(origin, async () => {
-      const requestId = crypto.randomUUID(); const snapshot = workspace.captureSaveAs(origin.document, requestId)!
+      const previous = pendingSaveAs.get(origin)
+      const requestId = previous?.requestId ?? crypto.randomUUID(); const snapshot = previous?.snapshot ?? workspace.captureSaveAs(origin.document, requestId)!
+      const request: SaveRequest = previous ?? { requestId, snapshot, expectedDiskToken: origin.document.diskToken, trigger: 'manual' }
+      pendingSaveAs.set(origin, request)
       const submitting = origin.session ?? origin.copySession!
       origin.saving++; workspace.changed()
+      let confirmed = false
       try {
-        const result = await window.inknest.saveAs({ requestId, snapshot, expectedDiskToken: origin.document.diskToken, trigger: 'manual' })
+        const result = await window.inknest.saveAs(request)
         if (workspace.getTab(origin.document) !== origin) return
-        if (result.status === 'ok' && workspace.acceptSave(result.value, snapshot.text)) { origin.diskStatus = 'current'; origin.inspection = null; origin.error = '' }
+        confirmed = true
+        if (result.status === 'ok') {
+          if (!workspace.acceptSave(result.value, snapshot.text)) { confirmed = false; throw new Error('Unmatched save receipt') }
+          origin.diskStatus = 'current'; origin.inspection = null; origin.error = ''; origin.notice = ''
+        }
         else if (result.status === 'error') workspace.failSave(origin.document, requestId, 'failure', result.error.message)
-      } finally { submitting.abandonSave(requestId); workspace.finishSaveAs(origin.document); origin.saving--; workspace.changed() }
+      } catch {
+        submitting.holdSave(requestId)
+        origin.saveFailure = 'failure'; origin.saveError = copy.saveResultPending
+      } finally {
+        if (confirmed) { pendingSaveAs.delete(origin); submitting.abandonSave(requestId); workspace.finishSaveAs(origin.document) }
+        origin.saving--; workspace.changed()
+      }
     })
+    if (tab.value === origin && origin.view.mode === 'edit') editor.value?.focus?.()
   }
   async function resolveConflict(action: ConflictAction): Promise<void> {
     if (action === 'save-copy') return saveAs()
@@ -274,6 +314,7 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
     if (event.type === 'menu-command' && (event.command === 'find' || event.command === 'find-next' || event.command === 'find-previous')) { await surface.find?.(event.command); return }
     if (event.type === 'menu-command' && event.command === 'presentation') { await surface.presentation?.(); return }
     if (event.type === 'menu-command' && event.command === 'open') { await openFile(); return }
+    if (event.type === 'menu-command' && event.command === 'new') { await createDocument(); return }
     if (event.type === 'menu-command' && event.command === 'backups') { backupsOpen.value = true; return }
     if (event.type === 'menu-command' && event.command === 'close') { if (workspace.active) await closeDocument(workspace.active); return }
     if (event.type === 'menu-command') { if (event.command === 'save-as') { if (!await surface.saveAs?.()) await saveAs() } else if (event.command === 'save') await save(); return }
@@ -282,20 +323,24 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
       const origin = workspace.getTab(event.ref)
       if (origin && closeOwners.get(origin) === event.requestId && !workspaceFrozen.value && (same(workspace.active, event.ref) || await settle()) && workspace.getTab(event.ref) === origin && closeOwners.get(origin) === event.requestId && !workspaceFrozen.value) {
         workspace.activate(event.ref)
-        if (event.action === 'save-as') await saveAs()
+        if (event.action === 'save-as') {
+          if (!origin.document.displayPath) { origin.notice = copy.untitledExit; workspace.changed() }
+          else await saveAs()
+        }
         drainExternal(origin)
       }
       return
     }
     if (event.type === 'external-change') { await reconcile(event.ref); return }
     if (event.type === 'link-opened') { receiveLinked(event.requestId, event.document); return }
+    if (event.type === 'document-created') { await installCreated(event.document); return }
     if (event.type === 'document-opened') {
       // Late duplicates of an open result must not restart a timed-out selection.
       if (!workspace.get(event.document)) await install(event.document, openingSelections)
       return
     }
     if (event.type === 'document-activated') { if (!workspaceFrozen.value && await settle()) workspace.activate(event.ref); return }
-    if (event.type === 'document-closed') { const origin = workspace.getTab(event.ref); if (origin) closeOwners.delete(origin); if (same(pendingExternal.get(event.ref.docId) ?? null, event.ref)) pendingExternal.delete(event.ref.docId); workspace.remove(event.ref); return }
+    if (event.type === 'document-closed') { const origin = workspace.getTab(event.ref); if (origin) { closeOwners.delete(origin); pendingSaveAs.delete(origin) } if (same(pendingExternal.get(event.ref.docId) ?? null, event.ref)) pendingExternal.delete(event.ref.docId); workspace.remove(event.ref); return }
     if (event.type === 'workspace-freeze') {
       if (freezeId) return
       freezeId = event.requestId; workspaceFrozen.value = true
@@ -368,6 +413,6 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { s
     finally { state.session?.abandonSave(event.requestId) }
     workspace.changed()
   })
-  onBeforeUnmount(() => { stopAutosave(); recoveryScheduler.dispose(); unsubscribeEvents(); unsubscribe(); workspace.dispose(); closing.clear() })
-  return { openLinked, historyRestorePending, editingFrozen, retryHistoryRestoreReceipt, restoreHistory, retryRecovery, backupsOpen, signal, workspace, tabs, tab, document, session, dirty, mode, busy, frozen, error, activate, closeDocument, setMode, openFile, save, saveAs, canSaveAs, resolveConflict }
+  onBeforeUnmount(() => { stopAutosave(); recoveryScheduler.dispose(); unsubscribeEvents(); unsubscribe(); workspace.dispose(); closing.clear(); pendingSaveAs.clear(); createdSelections.clear() })
+  return { createDocument, openLinked, historyRestorePending, editingFrozen, retryHistoryRestoreReceipt, restoreHistory, retryRecovery, backupsOpen, signal, workspace, tabs, tab, document, session, dirty, mode, busy, frozen, error, activate, closeDocument, setMode, openFile, save, saveAs, canSaveAs, resolveConflict }
 }

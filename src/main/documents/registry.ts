@@ -17,6 +17,7 @@ export interface DocumentSession extends Omit<Candidate, 'document' | 'rawBytes'
   resources: Map<string, { path: string; dev: number; ino: number }>
   resourceBytes: number
 }
+export function hasFile(session: DocumentSession): boolean { return !!session.document.displayPath && !!session.path }
 function retained(candidate: Candidate): Omit<Candidate, 'rawBytes'> { return { path: candidate.path, root: candidate.root, fingerprint: candidate.fingerprint, document: candidate.document } }
 function identity(candidate: Candidate | DocumentSession): string {
   return `${candidate.fingerprint.dev}:${candidate.fingerprint.ino}`
@@ -30,6 +31,19 @@ export class DocumentRegistry {
   get activationGeneration(): number { return this.activationVersion }
   private readonly writes = new Map<string, Promise<void>>()
   private writeVersion = 0
+  private untitledNumber = 0
+  private lastDirectory: string | null = null
+  get suggestedDirectory(): string | null { return this.lastDirectory }
+  private untitledName(): string { return `未命名-${++this.untitledNumber}` }
+  create(ownerId: number): Result<OpenDocument> {
+    if (!Number.isSafeInteger(ownerId) || ownerId <= 0) return { status: 'error', error: { code: 'INVALID_REQUEST', message: copy.invalidWindow, retryable: false } }
+    if (this.list(ownerId).length >= 20) return { status: 'error', error: { code: 'TAB_LIMIT', message: copy.tabLimit, retryable: true } }
+    const document: OpenDocument = { docId: randomUUID(), epoch: randomUUID(), displayName: this.untitledName(), displayPath: null, text: '', revision: 0, format: { encoding: 'utf-8', bom: false, eol: 'lf' }, diskToken: null, readOnlyReason: null, recovered: false, readingPosition: null }
+    const session: DocumentSession = { document, ownerId, path: '', root: '', fingerprint: { sha256: '', dev: 0, ino: 0, size: 0, mtimeMs: 0, ctimeMs: 0 }, diskStatus: 'current', resources: new Map(), resourceBytes: 0 }
+    this.sessions.set(document.docId, session)
+    this.activate(document, ownerId)
+    return { status: 'ok', value: document }
+  }
 
   get current(): DocumentSession | null {
     return this.active ? this.sessions.get(this.active.docId) ?? null : null
@@ -64,6 +78,7 @@ export class DocumentRegistry {
   close(): void {
     for (const session of this.sessions.values()) this.release(session.document, session.ownerId)
     this.active = null
+    this.untitledNumber = 0; this.lastDirectory = null
   }
   findCandidate(candidate: Candidate, ownerId: number): DocumentSession | undefined {
     const byPath = this.paths.get(candidate.path)
@@ -85,7 +100,7 @@ export class DocumentRegistry {
   // Keep path serialization in the registry so even separate coordinators cannot write one target concurrently.
   serializeWrite<T>(session: DocumentSession, operation: () => Promise<T>, targetPath = session.path): Promise<T> {
     this.writeVersion++
-    const paths = [...new Set([session.path, targetPath])]
+    const paths = [...new Set([session.path, targetPath].filter(Boolean))]
     const result = Promise.all(paths.map(path => this.writes.get(path))).then(operation)
     const settled = result.then(() => {}, () => {})
     for (const path of paths) this.writes.set(path, settled)
@@ -108,6 +123,7 @@ export class DocumentRegistry {
     this.updateFingerprint(session, candidate.fingerprint)
     if (this.paths.get(session.path) === session) this.paths.delete(session.path)
     session.path = candidate.path; session.root = candidate.root
+    this.lastDirectory = candidate.root
     this.paths.set(session.path, session)
     session.resources.clear()
   }
@@ -124,10 +140,11 @@ export class DocumentRegistry {
     if (!this.isWriteVersionCurrent(writeVersion)) fail('FILE_BUSY', copy.recoveryDuringSave)
     if (this.list(ownerId).length >= 20) fail('TAB_LIMIT', copy.recoveryTabLimit)
     const path = recovery.manifest.originalPath ?? ''
-    const existing = candidate ? this.findCandidate(candidate, ownerId) : this.findPath(path)
+    const existing = candidate ? this.findCandidate(candidate, ownerId) : path ? this.findPath(path) : undefined
     if (existing) { this.activate(existing.document, ownerId); fail('TARGET_OPEN', copy.originalAlreadyOpen) }
-    const document: OpenDocument = { docId: randomUUID(), epoch: randomUUID(), displayName: path ? basename(path) : copy.untitled, displayPath: path || null, text: candidate?.document.text ?? '', revision: recovery.revision, format: recovery.manifest.format, diskToken: recovery.manifest.baseDiskToken, readOnlyReason: null, recovered: true, readingPosition: null }
+    const document: OpenDocument = { docId: randomUUID(), epoch: randomUUID(), displayName: path ? basename(path) : this.untitledName(), displayPath: path || null, text: candidate?.document.text ?? '', revision: recovery.revision, format: recovery.manifest.format, diskToken: path ? recovery.manifest.baseDiskToken : null, readOnlyReason: null, recovered: true, readingPosition: null }
     const session: DocumentSession = { path, root: path ? dirname(path) : '', fingerprint: candidate?.fingerprint ?? { sha256: '', dev: 0, ino: 0, size: 0, mtimeMs: 0, ctimeMs: 0 }, document, ownerId, diskStatus, recoveryPending: true, recoveryRevision: recovery.revision, latestSnapshot: { docId: document.docId, epoch: document.epoch, revision: recovery.revision, text: recovery.text }, resources: new Map(), resourceBytes: 0 }
+    if (!path) session.diskStatus = 'current'
     this.sessions.set(document.docId, session)
     if (path) this.paths.set(path, session)
     if (candidate) this.identities.set(identity(candidate), session)
@@ -146,6 +163,7 @@ export class DocumentRegistry {
         if (!this.isWriteVersionCurrent(version)) continue
         const existing = this.findCandidate(candidate, ownerId)
         if (existing) {
+          this.lastDirectory = candidate.root
           if (options.activate !== false) this.activate(existing.document, ownerId)
           return { status: 'ok', value: existing.document }
         }
@@ -155,6 +173,7 @@ export class DocumentRegistry {
         this.sessions.set(document.docId, session)
         this.paths.set(candidate.path, session)
         this.identities.set(identity(candidate), session)
+        this.lastDirectory = candidate.root
         if (options.activate !== false) this.activate(document, ownerId)
         return { status: 'ok', value: document }
       }

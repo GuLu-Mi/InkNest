@@ -112,7 +112,7 @@ describe('release package contract', () => {
     await expect(inspectPackages({ macApp: '/missing' })).rejects.toThrow('expected version')
   })
   it('rejects extra and dynamic preload capabilities including non-document channels', () => {
-    const approved = ['backup:checkpoint', 'backup:clear', 'backup:discard-recovery', 'backup:export-history', 'backup:inspect-history', 'backup:inspect-recovery', 'backup:list-history', 'backup:list-recovery', 'backup:restore-history', 'backup:restore-recovery', 'document:activate', 'document:close', 'document:complete-close', 'document:conflict', 'document:event', 'document:link', 'document:open', 'document:reconcile', 'document:renderer-ready', 'document:resources', 'document:save', 'document:save-as', 'settings:set-theme', 'settings:theme', 'window:presentation']
+    const approved = ['backup:checkpoint', 'backup:clear', 'backup:discard-recovery', 'backup:export-history', 'backup:inspect-history', 'backup:inspect-recovery', 'backup:list-history', 'backup:list-recovery', 'backup:restore-history', 'backup:restore-recovery', 'document:activate', 'document:close', 'document:complete-close', 'document:conflict', 'document:create', 'document:event', 'document:link', 'document:open', 'document:reconcile', 'document:renderer-ready', 'document:resources', 'document:save', 'document:save-as', 'settings:set-theme', 'settings:theme', 'window:presentation']
     const preload = approved.map(channel => `ipcRenderer.${channel === 'document:event' ? 'on' : 'invoke'}("${channel}", value)`).join('\n')
     expect(inspectPreloadChannels(preload)).toEqual(approved)
     expect(() => inspectPreloadChannels(`${preload}\nipcRenderer.invoke("arbitrary:read", path)`)).toThrow('unexpected preload IPC')

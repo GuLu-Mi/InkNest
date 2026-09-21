@@ -2,6 +2,13 @@ import type { ErrorCode, ReadOnlyReason, ResourceBlockedReason } from './contrac
 
 /** Product language shared by native dialogs and the document workspace. */
 export const copy = {
+  newDocument: '新建文档', newFailed: '新建失败，已有文档已保留。',
+  initialSave: '保存…', initialSaveTitle: '保存 Markdown 文档', initialSaveRequired: '请先保存文档并选择文件位置。',
+  unsavedFile: '尚未保存到文件', untitledHistory: '保存为文件后开始记录历史版本。',
+  untitledCloseQuestion: (name: string) => `要将“${name}”保存为文件吗？`,
+  untitledCloseDetail: '保存后关闭此文档；取消将继续编辑。', dontSave: '不保存…',
+  untitledExit: '请先保存或关闭此文档，再退出。',
+  saveResultPending: '保存结果尚未确认，内容已保留并暂停编辑。请重试核对原请求。',
   chooseSystemDocument: '请选择要打开的文档',
   chooseSystemDocumentDetail: '一次打开一份文档；其他已打开的文档会保留。',
   historyCleanupFailed: '历史版本已保留，但部分旧备份暂时无法清理，将在后续操作重试。',
@@ -194,6 +201,7 @@ export const copy = {
 } as const
 
 export const resourceCopy: Record<ResourceBlockedReason, string> = {
+  unsaved: '保存文档后可加载相对路径图片',
   path: '此图片路径不能直接加载，请将图片放在文档目录内并使用相对路径，或点击打开图片', syntax: '图片地址包含标题，请将标题移到 > 之后，例如：![说明](<images/photo.png> "标题")', missing: '图片不存在', access: '无法访问这张图片', format: '暂不支持此图片格式', size: '图片过大，无法显示', remote: '远程图片未加载', unavailable: '图片暂时无法显示'
 }
 export const readOnlyCopy: Record<ReadOnlyReason, string> = {

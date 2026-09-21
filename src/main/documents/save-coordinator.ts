@@ -103,6 +103,7 @@ export class SaveCoordinator {
         return duplicate.result as Promise<Result<SaveReceipt>>
       }
       this.assertAvailable(session)
+      if (!destination && !document.displayPath) fail('INVALID_REQUEST', copy.initialSaveRequired)
       if (!validSnapshotText(request.snapshot, document.format)) fail('INVALID_REQUEST', copy.invalidSaveText)
       const previous = session.latestSnapshot ?? document
       if (request.snapshot.revision < previous.revision || request.snapshot.revision === previous.revision && request.snapshot.text !== previous.text) fail('STALE_REVISION', copy.staleSave)
@@ -250,10 +251,13 @@ export class SaveCoordinator {
     return { status: 'ok', value: { history, requestId: request.requestId, ref: { docId: document.docId, epoch: document.epoch }, savedRevision: request.snapshot.revision, diskToken: document.diskToken!, savedAt: new Date().toISOString(), displayName: document.displayName, displayPath: document.displayPath! } }
   }
   private async performSaveAs(session: DocumentSession, queue: Queue, request: SaveRequest, destination: { choose: () => Promise<string | null>; confirm: (kind: 'replace' | 'directory', name: string) => Promise<boolean> }): Promise<Result<SaveReceipt>> {
-    const selected = await destination.choose()
+    let selected = await destination.choose()
     if (!selected) return { status: 'cancelled' }
+    if (!extname(selected)) selected += '.md'
     if (!['.md', '.markdown'].includes(extname(selected).toLowerCase())) fail('UNSUPPORTED_TYPE', copy.markdownName)
-    const target = join(await realpath(dirname(selected)), basename(selected))
+    const parent = await realpath(dirname(selected))
+    const parentIdentity = await lstat(parent)
+    const target = join(parent, basename(selected))
     return this.registry.serializeWrite(session, async () => {
       if (!this.registry.has(session)) fail('STALE_SESSION', copy.staleSession)
       const exists = async () => { try { await lstat(target); return true } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error } }
@@ -270,10 +274,12 @@ export class SaveCoordinator {
       }
       if (loaded?.document.readOnlyReason || loaded && loaded.path !== target) fail('READ_ONLY', copy.unsafeWritableTarget)
       if (loaded && !await destination.confirm('replace', basename(target))) return { status: 'cancelled' }
-      if (dirname(target) !== session.root && !await destination.confirm('directory', basename(target))) return { status: 'cancelled' }
+      if (session.document.displayPath && dirname(target) !== session.root && !await destination.confirm('directory', basename(target))) return { status: 'cancelled' }
       const check = async () => {
         if (!this.registry.has(session)) fail('STALE_SESSION', copy.staleSession)
         if (await realpath(dirname(target)) !== dirname(target)) fail('EXTERNAL_CHANGE', copy.chooseChangedDirectory)
+        const currentParent = await lstat(parent)
+        if (currentParent.dev !== parentIdentity.dev || currentParent.ino !== parentIdentity.ino) fail('EXTERNAL_CHANGE', copy.chooseChangedDirectory)
         const current = await exists() ? await readDocument(target) : null
         const openedNow = current ? this.registry.findCandidate(current, session.ownerId) : this.registry.findPath(target)
         if (openedNow && openedNow !== session) fail('TARGET_OPEN', copy.targetAlreadyOpen)

@@ -1,5 +1,6 @@
 import { registerLinkHandlers } from './links'
-import { runWindowDialog } from '../window-dialogs'
+import { hasWindowDialog, runWindowDialog } from '../window-dialogs'
+import { join } from 'node:path'
 import type { PresentationController } from '../presentation-controller'
 import { copy } from '../../shared/copy'
 import type { RecoveryStore } from '../documents/recovery-store'
@@ -7,7 +8,7 @@ import type { HistoryStore } from '../documents/history-store'
 import { BackupCoordinator } from '../documents/backup-coordinator'
 import { fail } from '../documents/reader'
 import { validPresentationArgs, validCheckpointArgs, validRecordIdArgs, validHistoryArgs, validHistoryRestoreArgs } from './validation'
-import { dialog, ipcMain } from 'electron'
+import { app, dialog, ipcMain } from 'electron'
 import type { BrowserWindow } from 'electron'
 import type { OpenDocument, Result } from '../../shared/contracts'
 import { FileLifecycle } from '../documents/file-lifecycle'
@@ -37,8 +38,8 @@ export function registerDocumentHandlers(window: BrowserWindow, registry: Docume
   registerLinkHandlers(window, registry, resources, close, () => watcher.sync(window.webContents.id), developmentUrl)
   close.onRelease(() => { watcher.sync(window.webContents.id); presentation.checkSource() })
   const lifecycle = new FileLifecycle(registry, saves, {
-    choosePath: async name => {
-      const result = await runWindowDialog(window, () => dialog.showSaveDialog(window, { title: copy.saveAsTitle, defaultPath: name, filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] }))
+    choosePath: async (name, initial) => {
+      const result = await runWindowDialog(window, () => dialog.showSaveDialog(window, { title: initial ? copy.initialSaveTitle : copy.saveAsTitle, defaultPath: initial ? join(registry.suggestedDirectory ?? app.getPath('documents'), name) : name, filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] }))
       return result.canceled || !result.filePath || window.isDestroyed() ? null : result.filePath
     },
     confirm: async (kind, name, modifiedAt) => {
@@ -53,6 +54,13 @@ export function registerDocumentHandlers(window: BrowserWindow, registry: Docume
       return result.response === 1 && !window.isDestroyed()
     }
   }, recovery)
+  close.configureUntitled({
+    choose: async name => {
+      const result = await runWindowDialog(window, () => dialog.showMessageBox(window, { type: 'question', message: copy.untitledCloseQuestion(name), detail: copy.untitledCloseDetail, buttons: [copy.initialSave, copy.dontSave, copy.cancel], defaultId: 2, cancelId: 2, noLink: true }))
+      return window.isDestroyed() ? 'cancel' : result.response === 0 ? 'save' : result.response === 1 ? 'discard' : 'cancel'
+    },
+    save: async (request, ownerId) => { try { return await lifecycle.saveAs(request, ownerId) } finally { watcher.sync(ownerId) } }
+  })
   const backups = new BackupCoordinator(registry, saves, recovery, history, {
     choosePath: async name => { const result = await runWindowDialog(window, () => dialog.showSaveDialog(window, { title: copy.exportHistoryTitle, defaultPath: name, filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] })); return result.canceled || !result.filePath || window.isDestroyed() ? null : result.filePath },
     confirm: async (kind, name) => { const result = await runWindowDialog(window, () => dialog.showMessageBox(window, { type: 'warning', message: kind === 'directory' ? copy.directoryChange : copy.replaceQuestion(name), detail: kind === 'directory' ? copy.directoryChangeDetail : copy.exportHistoryDetail, buttons: [copy.cancel, kind === 'directory' ? copy.continueSaveAs : copy.replace], defaultId: 0, cancelId: 0, noLink: true })); return result.response === 1 && !window.isDestroyed() }
@@ -136,6 +144,16 @@ export function registerDocumentHandlers(window: BrowserWindow, registry: Docume
   })
   window.on('focus', () => { if (!close.active) watcher.checkAll(window.webContents.id) })
   let opening = false
+  ipcMain.handle('document:create', async (event, ...args: unknown[]) => {
+    if (!isTrustedCaller(event, window.webContents, developmentUrl) || args.length) return invalid
+    if (opening || close.active || presentation.active || hasWindowDialog(window) || registry.list(event.sender.id).some(session => saves.isRestoring(session))) return { status: 'error', error: { code: 'FILE_BUSY', message: copy.processingWait, retryable: true } }
+    return close.admission(async () => {
+      if (window.isDestroyed() || close.active) return { status: 'cancelled' }
+      const result = registry.create(event.sender.id)
+      if (result.status === 'ok') window.webContents.send('document:event', { type: 'document-created', document: result.value })
+      return result
+    })
+  })
   async function openPath(path: string, system: boolean): Promise<Result<OpenDocument>> {
     if (window.isDestroyed()) return { status: 'cancelled' }
     if (close.active) return { status: 'error', error: { code: 'FILE_BUSY', message: copy.closingWait, retryable: true } }
@@ -238,6 +256,7 @@ export function registerDocumentHandlers(window: BrowserWindow, registry: Docume
     ipcMain.removeHandler('document:reconcile')
     ipcMain.removeHandler('document:conflict')
     ipcMain.removeHandler('document:open')
+    ipcMain.removeHandler('document:create')
     ipcMain.removeHandler('document:save')
     ipcMain.removeHandler('document:activate')
     ipcMain.removeHandler('document:close')

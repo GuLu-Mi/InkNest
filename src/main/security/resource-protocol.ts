@@ -33,6 +33,7 @@ export class ResourceService {
     const results: ResolvedResource[] = []
     for (const ref of refs) {
       try {
+        if (!session.document.displayPath) throw new ResourceFailure(/^https?:\/\//iu.test(ref.rawTarget) ? 'remote' : 'unsaved')
         const path = await resolveImagePath(session.root, ref.rawTarget)
         results.push(await this.register(session, path, ref.key, false))
       } catch (error) { results.push({ key: ref.key, url: null, blockedReason: blockedReason(error) }) }

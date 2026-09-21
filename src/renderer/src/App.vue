@@ -25,8 +25,8 @@ import DocumentIssues from './components/DocumentIssues.vue'
 import DocumentTabs from './components/DocumentTabs.vue'
 import ToastNotice from './components/ToastNotice.vue'
 const editor = ref<InstanceType<typeof EditorPane>>()
-const ws = useWorkspace(editor, { saveAs: () => history.exportSelected(), presentation: () => presentation.enter(), find: searchCommand })
-const { retryRecovery, backupsOpen, signal, workspace, tabs, tab, document, session, dirty, mode, busy, frozen, editingFrozen, historyRestorePending, error, activate, closeDocument, setMode, openFile, save, saveAs, canSaveAs, resolveConflict } = ws
+const ws = useWorkspace(editor, { canCreate: () => !presenting.value && !presentationPending.value && !backupsOpen.value && !historyWorking.value,  saveAs: () => history.exportSelected(), presentation: () => presentation.enter(), find: searchCommand })
+const { createDocument, retryRecovery, backupsOpen, signal, workspace, tabs, tab, document, session, dirty, mode, busy, frozen, editingFrozen, historyRestorePending, error, activate, closeDocument, setMode, openFile, save, saveAs, canSaveAs, resolveConflict } = ws
 const previewPane = ref<InstanceType<typeof PreviewPane>>()
 const history = useHistory(ws, async () => { if (await editor.value?.settleComposition() === false) return false; previewPane.value?.recordScroll(); return true })
 const { open: historyOpen, compact: historyCompact, entries, loading: historyLoading, error: historyError, notice: historyNotice, working: historyWorking, preview: historical, displayed: historicalDocument, bookmark: historicalBookmark, restoreBlocked, top: historyTop } = history
@@ -112,7 +112,7 @@ const status = computed(() => {
   void signal.value
   if (document.value?.readOnlyReason) return readOnlyCopy[document.value.readOnlyReason]
   const state = tab.value
-  const primary = state?.saving ? copy.saving : (state?.diskStatus !== 'current' || state?.saveFailure) ? copy.saveFailed : dirty.value ? copy.pending : copy.saved
+  const primary = state?.saving ? copy.saving : (state?.diskStatus !== 'current' || state?.saveFailure) ? copy.saveFailed : !document.value?.displayPath ? copy.unsavedFile : dirty.value ? copy.pending : copy.saved
   return [primary, state?.recoveryPending ? copy.recoveryPending : '', state?.recoveryStatus === 'backed-up' ? copy.recoveryBackedUp : state?.recoveryStatus === 'pending' ? copy.recoveryWaiting : state?.recoveryStatus === 'error' ? copy.recoveryError : '', frozen.value ? copy.processing : '', state?.notice].filter(Boolean).join(' · ')
 })
 const hasNotices = computed(() => { void signal.value; return !!historyRestorePending.value || !!backupError.value || (recoveryCount.value > 0 && !recoveryDismissed.value) || !!tab.value?.historyAttention || !!tab.value?.historyMaintenance || !!tab.value?.recoveryError || !!error.value || (!!tab.value && tab.value.diskStatus !== 'current') })
@@ -151,6 +151,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
           @activate="activate"
           @close="closeDocument"
           @open="openFile"
+          @create="createDocument"
         >
           <button
             v-if="!document && recoveryCount > 0"
@@ -253,7 +254,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
             {{ copy.backups }}
           </button>
           <button
-            v-if="dirty"
+            v-if="dirty || !document?.displayPath"
             type="button"
             :disabled="frozen"
             @click="retryRecovery"
@@ -339,8 +340,10 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
               :disabled="editingFrozen || presentationPending"
               :presentation-disabled="!presentationAllowed"
               :status="status"
+              :initial-save="!document.displayPath"
               :history-open="historyOpen"
               :outline-open="outlineVisible"
+              @save="save"
               @presentation="presentation.enter"
               @outline="outline.toggleOpen"
               @mode="setMode"
@@ -460,6 +463,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
         :busy="busy"
         :disabled="frozen"
         @open="openFile"
+        @create="createDocument"
       />
     </template>
     <BackupManagerDialog

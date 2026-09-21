@@ -63,7 +63,7 @@ function revealSourceLine(zeroBasedLine: number): void {
   view.focus()
 }
 function recordView(): void { if (view) props.session.setEditorScroll(view.scrollSnapshot()); scroll() }
-defineExpose({ settleComposition, setFrozen, revealSourceLine, recordView })
+defineExpose({ settleComposition, setFrozen, revealSourceLine, recordView, focus: () => view?.focus() })
 onBeforeUnmount(() => {
   emit('searchSurface', null)
   unsubscribeRestore?.()

@@ -2,7 +2,7 @@
 
 关联 REQ-001/006–017/019–024/026–030、NFR-001/002/008。本页描述当前公开业务接口；产品目标见[需求](requirements.md)，未来能力不预先开放。
 
-精确 TypeScript 声明位于 [shared/contracts.ts](../src/shared/contracts.ts)，暴露实现位于 [preload/index.ts](../src/preload/index.ts)。当前 **24 个 invoke 方法 + 1 个事件订阅方法**，没有通用 IPC、Node、shell、任意路径读写或执行命令入口。
+精确 TypeScript 声明位于 [shared/contracts.ts](../src/shared/contracts.ts)，暴露实现位于 [preload/index.ts](../src/preload/index.ts)。当前 **25 个 invoke 方法 + 1 个事件订阅方法**，没有通用 IPC、Node、shell、任意路径读写或执行命令入口。
 
 Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能力，复用已有来源和资源契约，不新增 preload 方法。生成的 SVG/MathML/HTML、图表查看方式和折叠状态不属于 ContentSnapshot，不送入保存、恢复或历史正文。
 
@@ -28,6 +28,7 @@ Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能
 
 | 方法 | 通道 | 业务含义 |
 | --- | --- | --- |
+| `createDocument()` | document:create | 零参数创建独立空白会话；main 生成 UUID、编号及默认格式，原子校验容量和关闭准入 |
 | `openFile()` | document:open | 原生选择器选择一份 Markdown；无路径参数 |
 | `rendererReady()` | document:renderer-ready | 零参数握手，安装订阅后放行系统打开队列 |
 | `activateDocument(ref)` | document:activate | 激活已登记会话并补核对外部变化 |
@@ -54,7 +55,7 @@ Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能
 | `setTheme(theme)` | settings:set-theme | 仅 light/dark，持久化结果与即时生效分别报告 |
 | `onEvent(listener)` | document:event | 固定事件订阅，返回取消订阅函数 |
 
-新建、拖放路径入口、格式转换、额外资源目录、通用设置和最近文件没有 API。
+拖放路径入口、格式转换、额外资源目录、通用设置和最近文件没有 API。
 
 图片查看器的缩放、顺时针旋转及滚动位置仅为 renderer 临时展示状态；沿用 `resolveResources` / `openDocumentLink` 返回的受控图片 URL，不新增 preload 方法、文件写入或方向持久化。切图和关闭重置查看状态，不修改文档 revision、dirty 或历史。
 
@@ -80,8 +81,13 @@ Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能
 
 ## 事件、权限与生命周期
 
-AppEvent 覆盖打开/激活/关闭、系统与链接打开、菜单命令、外部变化、保存回执、恢复状态、历史变化/维护、关闭冻结/解冻与错误，以及 presentation-state。所有按文档路由的事件核对完整 ref；历史变化同时核对 displayPath/generation，避免同 epoch 另存后接受旧列表。
+AppEvent 覆盖新建/打开/激活/关闭、系统与链接打开、菜单命令、外部变化、保存回执、恢复状态、历史变化/维护、关闭冻结/解冻与错误，以及 presentation-state。所有按文档路由的事件核对完整 ref；历史变化同时核对 displayPath/generation，避免同 epoch 另存后接受旧列表。
 
-菜单命令当前为 open/save/save-as/backups/close/presentation/find/find-next/find-previous。搜索由 main 单入口派发，before-input-event 防止同一快捷键被原生菜单与页面重复执行。
+菜单命令当前为 new/open/save/save-as/backups/close/presentation/find/find-next/find-previous。新建和搜索由 main 单入口派发，before-input-event 防止同一快捷键被原生菜单与页面重复执行。
 
 每个特权请求核验 sender、主 frame、精确生产来源 `inknest://app/`（或开发受信 origin）、owner、ref 和精确 schema。主进程原生对话框提供文件选择/覆盖/丢弃意图，页面不能绕过目标版本复核。导航、关闭、迁移、epoch 更新和窗口销毁撤销相应能力/监听。行为时序见[持久化](persistence.md)，图片和外链规则见[安全](security.md)。
+
+
+`document-created` 事件与 `createDocument` 回执携带同一 `OpenDocument`，renderer 按 docId/epoch 幂等登记，迟到事件不重置模式和选区。无路径新建与恢复均进入编辑，已有文件默认阅读。无路径会话的 displayPath/diskToken 为 null，不登记路径或文件身份，不授权 cwd。未命名显示名为当前窗口递增的“未命名-N”；recovered 只标记恢复来源。
+
+首次保存复用 saveAs，传输失败时保留原 requestId 和冻结快照核对回执，不盲目重新选择目标。main 普通 save 对无路径会话返回 INVALID_REQUEST，自动调度不会打开选择器。ResourceBlockedReason 新增 unsaved：尚未建立本地资源基准。无路径历史返回空列表，不扫描磁盘历史。

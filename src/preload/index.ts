@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { AppEvent, HistorySnapshot, InkNestAPI, Result } from '../shared/contracts'
 
 const api: InkNestAPI = Object.freeze<InkNestAPI>({
+  createDocument: () => ipcRenderer.invoke('document:create'),
   openDocumentLink: request => ipcRenderer.invoke('document:link', request),
   getTheme: () => ipcRenderer.invoke('settings:theme'),
   setTheme: theme => ipcRenderer.invoke('settings:set-theme', theme),

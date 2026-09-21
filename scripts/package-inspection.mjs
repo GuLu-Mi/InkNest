@@ -49,7 +49,7 @@ const APPROVED_CHANNELS = [
   'backup:checkpoint', 'backup:clear', 'backup:discard-recovery', 'backup:export-history',
   'backup:inspect-history', 'backup:inspect-recovery', 'backup:list-history', 'backup:list-recovery',
   'backup:restore-history', 'backup:restore-recovery', 'document:activate', 'document:close', 'document:complete-close',
-  'document:conflict', 'document:event', 'document:link', 'document:open', 'document:reconcile',
+  'document:conflict', 'document:create', 'document:event', 'document:link', 'document:open', 'document:reconcile',
   'document:renderer-ready', 'document:resources', 'document:save', 'document:save-as', 'settings:set-theme', 'settings:theme', 'window:presentation'
 ]
 

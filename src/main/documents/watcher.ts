@@ -2,6 +2,7 @@ import { watch, type FSWatcher } from 'node:fs'
 import type { AppEvent } from '../../shared/contracts'
 import { readDocument, safeError } from './reader'
 import type { DocumentRegistry, DocumentSession } from './registry'
+import { hasFile } from './registry'
 
 interface WatchedDirectory { watcher: FSWatcher; sessions: Set<DocumentSession>; timer?: ReturnType<typeof setTimeout> }
 /** Directory subscriptions survive atomic rename; the set is the reference count. */
@@ -13,6 +14,7 @@ export class DirectoryWatcher {
     if (this.disposed) return
     const wanted = new Map<string, Set<DocumentSession>>()
     for (const session of this.registry.list(ownerId)) {
+      if (!hasFile(session)) continue
       let refs = wanted.get(session.root)
       if (!refs) { refs = new Set(); wanted.set(session.root, refs) }
       refs.add(session)
@@ -34,6 +36,7 @@ export class DirectoryWatcher {
     entry.timer = setTimeout(() => { delete entry.timer; for (const session of entry.sessions) void this.check(session) }, 200)
   }
   async check(session: DocumentSession): Promise<void> {
+    if (!hasFile(session)) return
     let diskStatus: 'current' | 'changed' | 'missing' | 'unavailable'
     try {
       const disk = await readDocument(session.path)

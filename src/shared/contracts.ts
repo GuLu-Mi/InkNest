@@ -20,7 +20,7 @@ export type ErrorCode = 'NOT_FOUND' | 'ACCESS_DENIED' | 'UNSUPPORTED_TYPE' | 'TO
 export interface AppError { code: ErrorCode; message: string; retryable: boolean }
 export type Result<T> = { status: 'ok'; value: T } | { status: 'cancelled' } | { status: 'error'; error: AppError }
 export interface ResourceReference { key: string; rawTarget: string }
-export type ResourceBlockedReason = 'missing' | 'access' | 'path' | 'syntax' | 'format' | 'size' | 'remote' | 'unavailable'
+export type ResourceBlockedReason = 'missing' | 'access' | 'path' | 'syntax' | 'format' | 'size' | 'remote' | 'unavailable' | 'unsaved'
 export interface ImageMetadata { mime: string; width: number; height: number; orientation: number; frames: number }
 export type LinkOutcome = { kind: 'anchor'; fragment: string } | { kind: 'document'; document: OpenDocument; fragment: string } | { kind: 'image'; url: string; label: string } | { kind: 'dispatched' }
 export interface LinkRequest { requestId: string; ref: SessionRef; rawTarget: string }
@@ -30,6 +30,7 @@ export type ThemeChoice = 'system' | 'light' | 'dark'
 export interface ThemePreferences { theme: ThemeChoice; warning: string }
 
 export interface InkNestAPI {
+  createDocument(): Promise<Result<OpenDocument>>
   openDocumentLink(request: LinkRequest): Promise<Result<LinkOutcome>>
   getTheme(): Promise<Result<ThemePreferences>>
   setTheme(theme: 'light' | 'dark'): Promise<Result<ThemePreferences>>
@@ -72,6 +73,7 @@ export interface SaveReceipt {
 }
 export interface CurrentState { ref: SessionRef; snapshot: ContentSnapshot | null }
 export type AppEvent =
+  | { type: 'document-created'; document: OpenDocument }
   | { type: 'system-document-opened'; document: OpenDocument }
   | { type: 'link-opened'; requestId: string; document: OpenDocument }
   | { type: 'history-maintenance'; ref: SessionRef; displayPath: string; failed: boolean }
@@ -83,7 +85,7 @@ export type AppEvent =
   | { type: 'close-error'; requestId: string; ref: SessionRef; error: AppError }
   | { type: 'document-closed'; ref: SessionRef }
   | { type: 'save-receipt'; receipt: SaveReceipt }
-  | { type: 'menu-command'; command: 'open' | 'save' | 'save-as' | 'backups' | 'close' | 'presentation' | 'find' | 'find-next' | 'find-previous' }
+  | { type: 'menu-command'; command: 'new' | 'open' | 'save' | 'save-as' | 'backups' | 'close' | 'presentation' | 'find' | 'find-next' | 'find-previous' }
   | { type: 'external-change'; ref: SessionRef; diskStatus: DiskStatus }
   | { type: 'document-opened'; document: OpenDocument }
   | { type: 'document-activated'; ref: SessionRef }

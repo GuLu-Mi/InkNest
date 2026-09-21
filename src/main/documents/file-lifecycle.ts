@@ -7,7 +7,7 @@ import { DocumentRegistry, type DocumentSession } from './registry'
 import { SaveCoordinator, saveError, validSnapshotText } from './save-coordinator'
 
 export interface LifecycleDialogs {
-  choosePath(name: string): Promise<string | null>
+  choosePath(name: string, initial?: boolean): Promise<string | null>
   confirm(kind: 'replace' | 'directory' | 'overwrite' | 'use-disk', name: string, modifiedAt?: string): Promise<boolean>
 }
 export class FileLifecycle {
@@ -29,6 +29,7 @@ export class FileLifecycle {
   async reconcileExternal(state: CurrentState, ownerId: number): Promise<Result<ReconcileOutcome>> {
     try {
       const session = this.capture(state, ownerId)
+      if (!session.document.displayPath) return { status: 'ok', value: { kind: 'unchanged' } }
       return await this.saves.barrier(session, () => this.registry.serializeWrite(session, async () => {
         try {
           const candidate = await readDocument(session.path)
@@ -58,7 +59,8 @@ export class FileLifecycle {
     let executed = false
     const result = await this.saves.saveAs(request, ownerId, () => {
       executed = true // Cached receipts do not execute the picker or resolve a new conflict.
-      return this.dialogs.choosePath(this.registry.get(request.snapshot, ownerId)?.document.displayName ?? copy.defaultFilename)
+      const document = this.registry.get(request.snapshot, ownerId)?.document
+      return this.dialogs.choosePath(document?.displayPath ? document.displayName : `${document?.displayName ?? copy.untitled}.md`, !document?.displayPath)
     }, (kind, name) => this.dialogs.confirm(kind, name))
     if (result.status === 'ok' && executed && session) this.inspectedTokens.delete(session)
     return result

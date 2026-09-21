@@ -22,7 +22,9 @@ export class DocumentSession {
   private readonly restoreListeners = new Set<(transaction: Transaction) => void>()
   private lifecycleFrozen = false
   private restoreHold: string | null = null
-  get frozen(): boolean { return this.lifecycleFrozen || this.restoreHold !== null }
+  private saveHold: string | null = null
+  get frozen(): boolean { return this.lifecycleFrozen || this.restoreHold !== null || this.saveHold !== null }
+  holdSave(requestId: string): void { if (this.submitted.has(requestId)) this.saveHold = requestId }
   set frozen(value: boolean) { this.lifecycleFrozen = value }
   error = ''
   constructor(readonly document: OpenDocument) {
@@ -52,7 +54,7 @@ export class DocumentSession {
   setFrozen(value: boolean): void { this.frozen = value }
   get currentRevision(): number { return this.revision }
   get state(): EditorState { return this.current }
-  get dirty(): boolean { return this.document.recovered || this.current.doc.toString() !== this.baseline }
+  get dirty(): boolean { return this.document.displayPath ? this.document.recovered || this.current.doc.toString() !== this.baseline : this.current.doc.length !== 0 }
   snapshot(): ContentSnapshot { return { docId: this.document.docId, epoch: this.document.epoch, revision: this.revision, text: this.current.doc.toString() } }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener) }
   subscribeHistoryRestore(listener: (transaction: Transaction) => void): () => void { this.restoreListeners.add(listener); return () => this.restoreListeners.delete(listener) }
@@ -79,6 +81,7 @@ export class DocumentSession {
   abandonSave(requestId: string): void {
     this.submitted.delete(requestId); this.restoreTargets.delete(requestId)
     if (this.restoreHold === requestId) this.restoreHold = null
+    if (this.saveHold === requestId) this.saveHold = null
   }
   holdHistoryRestore(requestId: string): void {
     if (this.submitted.has(requestId) && this.restoreTargets.has(requestId)) this.restoreHold = requestId
@@ -125,6 +128,7 @@ export class DocumentSession {
     const submitted = attempt?.snapshot
     if (!submitted || receipt.ref.docId !== this.document.docId || receipt.ref.epoch !== this.document.epoch || receipt.savedRevision !== submitted.revision || savedText !== submitted.text) return false
     this.submitted.delete(receipt.requestId)
+    if (this.saveHold === receipt.requestId) this.saveHold = null
     if (receipt.savedRevision < this.savedRevision || attempt!.order < this.acceptedSaveOrder) return false
     this.acceptedSaveOrder = attempt!.order
     this.savedRevision = receipt.savedRevision

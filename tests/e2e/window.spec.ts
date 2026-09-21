@@ -27,7 +27,7 @@ test('launches the production shell with an isolated renderer', async () => {
 
     expect(rendererBoundary.csp).toMatch(/style-src 'self' 'nonce-[A-Za-z0-9+/]{32}'/u)
     expect(rendererBoundary).toMatchObject({
-      bridgeKeys: ['openDocumentLink', 'getTheme', 'setTheme', 'setPresentation', 'checkpoint', 'listRecovery', 'inspectRecovery', 'restoreRecovery', 'discardRecovery', 'listHistory', 'inspectHistory', 'restoreHistory', 'exportHistory', 'clearRecords', 'saveAs', 'reconcileExternal', 'resolveConflict', 'save', 'openFile', 'rendererReady', 'closeDocument', 'activateDocument', 'completeClose', 'onEvent', 'resolveResources'],
+      bridgeKeys: ['createDocument', 'openDocumentLink', 'getTheme', 'setTheme', 'setPresentation', 'checkpoint', 'listRecovery', 'inspectRecovery', 'restoreRecovery', 'discardRecovery', 'listHistory', 'inspectHistory', 'restoreHistory', 'exportHistory', 'clearRecords', 'saveAs', 'reconcileExternal', 'resolveConflict', 'save', 'openFile', 'rendererReady', 'closeDocument', 'activateDocument', 'completeClose', 'onEvent', 'resolveResources'],
       bridgeIsFrozen: true,
       hasNodeRequire: false,
 

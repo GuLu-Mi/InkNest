@@ -275,6 +275,11 @@ async function createWindow(): Promise<WindowHost> {
   mainWindow.on('close', (event) => { event.preventDefault(); void requestClose(false) })
   mainWindow.on('closed', () => { app.removeListener('before-quit', beforeQuit) })
   mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key.toLowerCase() === 'n' && (process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta) && !input.alt && !input.shift) {
+      event.preventDefault()
+      if (input.type === 'keyDown' && !input.isAutoRepeat && canCreate()) send({ type: 'menu-command', command: 'new' })
+      return
+    }
     const command = findShortcut(input, process.platform)
     if (command) {
       // Consuming here also prevents the native accelerator from dispatching twice.
@@ -285,9 +290,10 @@ async function createWindow(): Promise<WindowHost> {
     if (input.key === 'F5' || ((input.control || input.meta) && input.key.toLowerCase() === 'r')) event.preventDefault()
   })
   const canPresent = () => !mainWindow.isDestroyed() && !!registry.current && !hasWindowDialog(mainWindow) && !close.active && !registry.list(mainWindow.webContents.id).some(session => saves.isRestoring(session))
+  const canCreate = () => !mainWindow.isDestroyed() && !hasWindowDialog(mainWindow) && !close.active && !presentation.active && !registry.list(mainWindow.webContents.id).some(session => saves.isRestoring(session))
   const applicationMenu = Menu.buildFromTemplate([
     ...(process.platform === 'darwin' ? [{ label: 'InkNest', submenu: [{ role: 'about' as const, label: copy.about }, { type: 'separator' as const }, { role: 'hide' as const, label: copy.hide }, { role: 'hideOthers' as const, label: copy.hideOthers }, { role: 'unhide' as const, label: copy.showAll }, { type: 'separator' as const }, { role: 'quit' as const, label: copy.quit }] }] : []),
-    { label: copy.fileMenu, submenu: [{ label: copy.openDocument, accelerator: 'CmdOrCtrl+O', click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'open' }) }, { label: copy.immediateSave, accelerator: 'CmdOrCtrl+S', click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'save' }) }, { label: copy.saveAs, accelerator: 'CmdOrCtrl+Shift+S', click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'save-as' }) }, { label: copy.backups, click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'backups' }) }, { label: copy.closeDocument, accelerator: 'CmdOrCtrl+W', click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'close' }) }, { role: 'quit', label: copy.quit }] },
+    { label: copy.fileMenu, submenu: [{ id: 'new-document', label: copy.newDocument, accelerator: 'CmdOrCtrl+N', click: () => { if (canCreate()) send({ type: 'menu-command', command: 'new' }) } }, { label: copy.openDocument, accelerator: 'CmdOrCtrl+O', click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'open' }) }, { label: copy.immediateSave, accelerator: 'CmdOrCtrl+S', click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'save' }) }, { label: copy.saveAs, accelerator: 'CmdOrCtrl+Shift+S', click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'save-as' }) }, { label: copy.backups, click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'backups' }) }, { label: copy.closeDocument, accelerator: 'CmdOrCtrl+W', click: () => mainWindow.webContents.send('document:event', { type: 'menu-command', command: 'close' }) }, { role: 'quit', label: copy.quit }] },
     { label: copy.viewMenu, submenu: [{ label: copy.presentation, click: () => { if (canPresent()) send({ type: 'menu-command', command: 'presentation' }) } }] },
     { label: copy.edit, submenu: [{ role: 'undo', label: copy.undo }, { role: 'redo', label: copy.redo }, { type: 'separator' }, { role: 'cut', label: copy.cut }, { role: 'copy', label: copy.copyText }, { role: 'paste', label: copy.paste }, { role: 'selectAll', label: copy.selectAll }, { type: 'separator' },
       { id: 'find', label: '查找…', accelerator: 'CmdOrCtrl+F', click: () => { if (canPresent()) send({ type: 'menu-command', command: 'find' }) } },
@@ -295,6 +301,9 @@ async function createWindow(): Promise<WindowHost> {
       { id: 'find-previous', label: '查找上一处', accelerator: process.platform === 'darwin' ? 'Cmd+Shift+G' : 'Shift+F3', click: () => { if (canPresent()) send({ type: 'menu-command', command: 'find-previous' }) } }
     ] }
   ])
+  const fileMenu = applicationMenu.items.find(item => item.label === copy.fileMenu)!.submenu!
+  fileMenu.on('menu-will-show', () => { applicationMenu.getMenuItemById('new-document')!.enabled = canCreate() })
+  fileMenu.on('menu-will-close', () => { applicationMenu.getMenuItemById('new-document')!.enabled = true })
   const viewMenu = applicationMenu.items.find(item => item.label === copy.viewMenu)!.submenu!
   viewMenu.on('menu-will-show', () => { viewMenu.items[0]!.enabled = canPresent() })
   const editMenu = applicationMenu.items.find(item => item.label === copy.edit)!.submenu!

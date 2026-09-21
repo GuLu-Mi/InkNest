@@ -68,7 +68,7 @@ onMounted(() => { if (props.compact) host.value?.querySelector<HTMLButtonElement
         </button>
       </div>
       <p v-else-if="!entries.length">
-        {{ copy.noHistory }}
+        {{ 'displayPath' in owner && !owner.displayPath ? copy.untitledHistory : copy.noHistory }}
       </p>
       <section
         v-for="group in groups"

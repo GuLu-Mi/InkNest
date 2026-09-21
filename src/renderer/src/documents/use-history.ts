@@ -28,7 +28,7 @@ export function useHistory(ws: Workspace, beforeEnter: () => Promise<boolean>) {
     const snapshot = preview.value?.snapshot; const document = ws.document.value
     return snapshot && document ? { ...document, text: snapshot.text, format: snapshot.format, readOnlyReason: snapshot.byteLength > 2 * 1024 * 1024 ? 'size' : null } : null
   })
-  const restoreBlocked = computed(() => !ws.session.value || ws.editingFrozen.value || ws.tab.value?.diskStatus !== 'current' || ws.tab.value?.recoveryPending || !!ws.historyRestorePending.value)
+  const restoreBlocked = computed(() => !ws.document.value?.displayPath || !ws.session.value || ws.editingFrozen.value || ws.tab.value?.diskStatus !== 'current' || ws.tab.value?.recoveryPending || !!ws.historyRestorePending.value)
   const top = computed(() => { void ws.signal.value; void positionSignal.value; return ws.document.value ? states.get(key(ws.document.value))?.top ?? 0 : 0 })
   function setTop(owner: SessionRef, value: number): void { const state = states.get(key(owner)); if (state && state.top !== value) { state.top = value; positionSignal.value++ } }
   function exit(): void {
@@ -42,6 +42,7 @@ export function useHistory(ws: Workspace, beforeEnter: () => Promise<boolean>) {
     const current = context(); const sequence = ++listSequence
     entries.value = []; error.value = ''; loading.value = !!current
     if (!current) return
+    if (!ws.document.value?.displayPath) { loading.value = false; return }
     try {
       const result = await window.inknest.listHistory({ docId: current.ref.docId, epoch: current.ref.epoch })
       const live = context()

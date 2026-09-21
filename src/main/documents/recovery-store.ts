@@ -40,7 +40,7 @@ export class RecoveryStore {
           if (await this.discarded(id)) { await this.reclaimDiscarded(id); continue }
           const manifest = await this.manifest(id); const latest = manifest.snapshots[0]; if (!latest) continue
           if (!this.active(id) && Date.now() - Date.parse(latest.createdAt) > RETENTION_MS) { await this.markDiscarded(id); continue }
-          let available = true; try { await this.load(id) } catch { available = false }
+          let available = true; try { const verified = await this.load(id); if (!manifest.originalPath && verified.text === '') continue } catch { available = false }
           entries.push({ id, displayName: manifest.originalPath ? basename(manifest.originalPath) : copy.untitled, savedAt: latest.createdAt, available })
         } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') entries.push({ id, displayName: copy.unreadableRecovery, savedAt: '', available: false }) }
       }
@@ -71,7 +71,7 @@ export class RecoveryStore {
         const latest = existing?.manifest.snapshots[0]
         if (latest && latest.revision > captured.revision) fail('STALE_REVISION', copy.staleRecoveryRevision)
         if (latest?.revision === captured.revision) { const bytes = await this.store.verified(id!, latest); if (bytes.toString('utf8') !== captured.text) fail('STALE_REVISION', copy.inconsistentRecovery); return { revision: latest.revision, savedAt: latest.createdAt } }
-        if (!doc.recovered && captured.text === doc.text) fail('RECOVERY_FAILED', copy.noRecoveryNeeded)
+        if (!doc.recovered && captured.text === doc.text && (doc.displayPath || !id)) fail('RECOVERY_FAILED', copy.noRecoveryNeeded)
         const now = Date.now(); const bytes = Buffer.from(captured.text, 'utf8')
         const projected = (await this.store.contentBytes()) + bytes.length
         let total = projected; let count = all.filter(item => item.manifest.snapshots.length).length + (existing?.manifest.snapshots.length ? 0 : 1)

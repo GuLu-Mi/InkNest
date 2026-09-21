@@ -38,7 +38,7 @@ export class WorkspaceModel {
   register(document: OpenDocument): void {
     if (!this.tabs.has(key(document))) {
       const session = document.readOnlyReason ? null : new DocumentSession(document)
-      const tab: TabState = { document, session, copySession: null, recoveryStatus: document.recovered ? 'backed-up' : null, recoveryRevision: document.recovered ? document.revision : null, recoveryError: '', recoveryPending: document.recovered, historyAttention: null, historyGeneration: 0, historyMaintenance: false, notice: '', view: { mode: 'read', reading: { top: document.readingPosition?.offset ?? 0, ratio: document.readingPosition?.ratio ?? 0, revision: document.revision }, editorTop: 0 }, diskStatus: 'current', inspection: null, error: '', saving: 0, frozen: false, saveOutcome: null, saveError: null, saveFailure: null, unsubscribe: () => {} }
+      const tab: TabState = { document, session, copySession: null, recoveryStatus: document.recovered ? 'backed-up' : null, recoveryRevision: document.recovered ? document.revision : null, recoveryError: '', recoveryPending: document.recovered, historyAttention: null, historyGeneration: 0, historyMaintenance: false, notice: '', view: { mode: document.displayPath ? 'read' : 'edit', reading: { top: document.readingPosition?.offset ?? 0, ratio: document.readingPosition?.ratio ?? 0, revision: document.revision }, editorTop: 0 }, diskStatus: 'current', inspection: null, error: '', saving: 0, frozen: false, saveOutcome: null, saveError: null, saveFailure: null, unsubscribe: () => {} }
       tab.unsubscribe = session?.subscribe(() => { if (session.error) tab.error = session.error; if (tab.recoveryPending && session.currentRevision > tab.document.revision) tab.recoveryPending = false; this.changed() }) ?? (() => {})
       this.tabs.set(key(document), tab)
     }
@@ -114,7 +114,7 @@ export class WorkspaceModel {
   }
   acceptRecovery(event: Extract<AppEvent, { type: 'recovery-status' }> | { ref: SessionRef; revision: number; state: 'pending' | 'backed-up' | 'error' }): boolean {
     const tab = this.getTab(event.ref)
-    if (!tab?.session || tab.session.currentRevision !== event.revision || event.state === 'backed-up' && !tab.session.dirty) return false
+    if (!tab?.session || tab.session.currentRevision !== event.revision || event.state === 'backed-up' && !tab.session.dirty && !!tab.document.displayPath) return false
     tab.recoveryStatus = event.state
     if (event.state === 'backed-up') { tab.recoveryRevision = event.revision; tab.recoveryError = '' }
     if (event.state === 'error') tab.recoveryError = copy.recoveryMaintenanceFailed

@@ -191,6 +191,7 @@ export class HistoryStore {
     })
   }
   async list(session: DocumentSession): Promise<HistoryListing> {
+    if (!session.document.displayPath) return { generation: 0, entries: [] }
     return this.store.serial(async () => {
       const all = await this.all(); await this.maintain(all, Date.now())
       const item = all.find(i => i.manifest.canonicalPath === session.path)

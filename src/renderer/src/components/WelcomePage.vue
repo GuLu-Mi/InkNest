@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { copy } from '../../../shared/copy'
 defineProps<{ busy: boolean; disabled: boolean }>()
-defineEmits<{ open: [] }>()
+defineEmits<{ open: []; create: [] }>()
 </script>
 <template>
   <main class="welcome-stage">
@@ -24,6 +24,14 @@ defineEmits<{ open: [] }>()
         @click="$emit('open')"
       >
         {{ busy ? copy.opening : copy.openDocument }}
+      </button>
+      <button
+        type="button"
+        class="welcome-create"
+        :disabled="busy || disabled"
+        @click="$emit('create')"
+      >
+        {{ copy.newDocument }}
       </button>
       <p class="supported-files">
         {{ copy.supportedFiles }}

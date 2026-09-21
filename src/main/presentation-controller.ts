@@ -18,6 +18,7 @@ export class PresentationController {
   private disposed = false
   private timer: ReturnType<typeof setTimeout> | undefined
   private readonly seen = new Map<string, PresentationRequest>()
+  get active(): boolean { return !!this.current?.enabled || this.transitioning || this.cancelledEnter }
   constructor(private readonly window: NativeWindow, private readonly live: (ref: SessionRef) => boolean, private readonly blocked: () => boolean, private readonly send: (event: AppEvent) => void) {
     window.on('enter-full-screen', this.entered); window.on('leave-full-screen', this.left); window.on('closed', this.dispose)
   }

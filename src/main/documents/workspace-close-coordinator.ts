@@ -19,6 +19,7 @@ export class WorkspaceCloseCoordinator {
   get windowActive(): boolean { return this.windowRequest !== null }
   isBlocked(ref: SessionRef): boolean { return this.windowActive || !!this.documentRequest && key(this.documentRequest) === key(ref) }
   onRelease(callback: () => void): void { this.released = callback }
+  configureUntitled(handlers: Parameters<CloseCoordinator['configureUntitled']>[0]): void { this.close.configureUntitled(handlers) }
   async lifecycle<T>(ref: SessionRef, operation: () => Promise<Result<T>>): Promise<Result<T>> {
     if (this.isBlocked(ref)) return { status: 'cancelled' }
     const id = randomUUID(); this.operations.set(id, { docId: ref.docId, epoch: ref.epoch })

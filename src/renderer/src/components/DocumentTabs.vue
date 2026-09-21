@@ -5,7 +5,7 @@ import type { SessionRef } from '../../../shared/contracts'
 import { copy } from '../../../shared/copy'
 import type { TabState } from '../documents/workspace'
 const props = defineProps<{ tabs: readonly TabState[]; active: SessionRef | null; disabled: boolean; busy: boolean }>()
-const emit = defineEmits<{ activate: [ref: SessionRef]; close: [ref: SessionRef]; open: [] }>()
+const emit = defineEmits<{ activate: [ref: SessionRef]; close: [ref: SessionRef]; open: []; create: [] }>()
 const strip = ref<HTMLElement>()
 const selected = (tab: TabState) => props.active?.docId === tab.document.docId && props.active.epoch === tab.document.epoch
 function revealActive(): void { strip.value?.querySelector('[aria-selected="true"]')?.closest('.document-tab')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }
@@ -75,12 +75,21 @@ function navigate(event: KeyboardEvent, index: number): void {
     <button
       type="button"
       class="open-tab"
+      :aria-label="copy.newDocument"
+      :title="copy.newDocument"
+      :disabled="disabled || busy"
+      @click="emit('create')"
+    >
+      +
+    </button>
+    <button
+      type="button"
+      class="open-document"
       :aria-label="copy.openDocument"
-      :title="copy.openDocument"
       :disabled="disabled || busy"
       @click="emit('open')"
     >
-      +
+      打开…
     </button>
     <div class="titlebar-space" />
     <slot />
