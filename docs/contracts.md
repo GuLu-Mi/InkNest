@@ -54,6 +54,8 @@
 
 新建、拖放路径入口、格式转换、额外资源目录、通用设置和最近文件没有 API。
 
+图片查看器的缩放、顺时针旋转及滚动位置仅为 renderer 临时展示状态；沿用 `resolveResources` / `openDocumentLink` 返回的受控图片 URL，不新增 preload 方法、文件写入或方向持久化。切图和关闭重置查看状态，不修改文档 revision、dirty 或历史。
+
 ## 保存与请求结果
 
 普通 `Result<T>` 为 ok/value、cancelled 或 error/AppError；取消不能伪装成功。错误代码包括 NOT_FOUND、ACCESS_DENIED、UNSUPPORTED_TYPE、TOO_LARGE、INVALID_REQUEST、STALE_SESSION、IO_ERROR、FILE_BUSY、STALE_REVISION、EXTERNAL_CHANGE、DISK_FULL、READ_ONLY、TAB_LIMIT、TARGET_OPEN、RECOVERY_FAILED、HISTORY_FAILED、CORRUPT_DATA。

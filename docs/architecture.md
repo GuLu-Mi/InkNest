@@ -56,6 +56,8 @@ main 启动即注册 open-file、单实例锁和 argv；`SystemOpenQueue` 合批
 
 `ResourceService` 处理文档目录内被动图片及主动单文件能力；`image-metadata.ts` 使用 sharp 校验格式、帧数和像素。会话 URL 包含 docId/epoch/随机 resourceId，无可执行磁盘路径。`LinkRouter` 重新验证当前来源/代数并调用受限 shell 适配器：浏览器/邮件、目录打开、附件定位。没有额外目录授权方法，main 内的单文件能力不扩张根目录。
 
+图片查看器 `ImageViewer.vue` 持有临时倍率、角度及适应状态；`preview/image-viewer.ts` 计算滚轮增量、倍率边界、旋转尺寸和坐标。旋转后的容器宽高负责滚动占位，内部原始 `img` 负责展示；缩放按帧合并并补偿锚点，切图/关闭撤销待处理帧和布局回调。资源 URL、原始图片和文档会话不参与这些展示状态变更。
+
 ## 搜索、历史与演示展示
 
 搜索由 `use-document-search.ts` 按来源维护查询和取消代数。阅读适配对净化后的正文 Text 节点建立索引，CSS Custom Highlight 不改正文 DOM；编辑适配读取原 EditorState，使用可见范围 Decoration。匹配坐标存紧凑数组，扫描分段让出事件循环；完整计数不靠截断结果完成。

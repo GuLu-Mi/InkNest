@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { imageViewerCopy as copy } from '../../../shared/image-viewer-copy'
-import { fitImageScale, imageViewerUrl, nextImageIndex, zoomImageScale, viewerNavigationDirection, imageViewerLoadStatus, type ViewerImage } from '../preview/image-viewer'
+import { fitImageScale, imageViewerUrl, nextImageIndex, zoomImageScale, viewerNavigationDirection, imageViewerLoadStatus, isImageZoomWheel, imageWheelDelta, wheelImageScale, nextImageRotation, rotatedImageSize, rotateImagePoint, unrotateImagePoint, IMAGE_VIEWER_PADDING, MAX_IMAGE_SCALE, type ImageRotation, type ImagePoint, type ViewerImage } from '../preview/image-viewer'
 import './image-viewer.css'
 
 const props = defineProps<{ items: readonly ViewerImage[]; index: number }>()
 const emit = defineEmits<{ close: []; select: [index: number] }>()
 const dialog = ref<HTMLDialogElement>()
 const viewport = ref<HTMLElement>()
+const frame = ref<HTMLElement>()
 const image = ref<HTMLImageElement>()
 const currentIndex = ref(0)
 const current = computed(() => props.items[currentIndex.value])
@@ -16,6 +17,14 @@ const scale = ref(1)
 const width = ref(0)
 const height = ref(0)
 const fit = ref(true)
+const rotation = ref<ImageRotation>(0)
+const viewportSize = ref({ width: 0, height: 0 })
+const orientedSize = computed(() => rotatedImageSize(width.value, height.value, rotation.value))
+const fitScale = computed(() => fitImageScale(orientedSize.value.width, orientedSize.value.height, viewportSize.value.width - IMAGE_VIEWER_PADDING * 2, viewportSize.value.height - IMAGE_VIEWER_PADDING * 2))
+const minimumScale = computed(() => Math.min(0.1, fitScale.value))
+const isMac = /Mac/.test(navigator.platform)
+const hint = isMac ? copy.zoomHintMac : copy.zoomHintWindows
+const announcement = ref('')
 const status = ref<'loading' | 'ready' | 'error'>('loading')
 const generation = ref(0)
 let observer: ResizeObserver | undefined
@@ -23,25 +32,100 @@ let origin: HTMLElement | null = null
 let previousOverflow = ''
 let mounted = false
 let closing = false
+interface ViewAnchor { point: ImagePoint; client: ImagePoint }
+let pendingZoom: { scale: number; anchor: ViewAnchor | null } | null = null
+let zoomFrame: number | undefined
+let viewRevision = 0
+let announcementTimer: ReturnType<typeof setTimeout> | undefined
+
+function cancelViewUpdate(): void {
+  viewRevision++
+  if (zoomFrame !== undefined) cancelAnimationFrame(zoomFrame)
+  zoomFrame = undefined
+  pendingZoom = null
+}
+function announce(): void {
+  clearTimeout(announcementTimer)
+  announcementTimer = setTimeout(() => {
+    if (!closing && status.value === 'ready') announcement.value = `${Math.round(scale.value * 100)}%，${copy.rotationStatus} ${rotation.value}°`
+  }, 200)
+}
+function measureViewport(): void {
+  if (viewport.value) viewportSize.value = { width: viewport.value.clientWidth, height: viewport.value.clientHeight }
+}
+function captureAnchor(client?: ImagePoint): ViewAnchor | null {
+  if (!frame.value || !viewport.value || status.value !== 'ready') return null
+  const rect = frame.value.getBoundingClientRect()
+  const view = viewport.value.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) return null
+  // Use the visible image center when the pointer is over its surrounding space.
+  const visibleCenter = {
+    x: (Math.max(rect.left, view.left + viewport.value.clientLeft) + Math.min(rect.right, view.left + viewport.value.clientLeft + viewport.value.clientWidth)) / 2,
+    y: (Math.max(rect.top, view.top) + Math.min(rect.bottom, view.top + viewport.value.clientHeight)) / 2
+  }
+  const target = client && client.x >= rect.left && client.x <= rect.right && client.y >= rect.top && client.y <= rect.bottom ? client : visibleCenter
+  const point = { x: Math.max(0, Math.min(1, (target.x - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (target.y - rect.top) / rect.height)) }
+  return { point: unrotateImagePoint(point, rotation.value), client: target }
+}
+function applyView(nextScale: number, nextRotation: ImageRotation, nextFit: boolean, anchor: ViewAnchor | null): void {
+  cancelViewUpdate()
+  const revision = viewRevision
+  scale.value = nextScale; rotation.value = nextRotation; fit.value = nextFit
+  void nextTick(() => {
+    if (closing || revision !== viewRevision || !viewport.value || !frame.value) return
+    if (nextFit) resetScroll()
+    else if (anchor) {
+      const rect = frame.value.getBoundingClientRect()
+      const point = rotateImagePoint(anchor.point, nextRotation)
+      viewport.value.scrollLeft += rect.left + rect.width * point.x - anchor.client.x
+      viewport.value.scrollTop += rect.top + rect.height * point.y - anchor.client.y
+    }
+  })
+  announce()
+}
+function wheel(event: WheelEvent): void {
+  event.stopPropagation()
+  if (!isImageZoomWheel(event, isMac)) return
+  event.preventDefault()
+  if (closing || status.value !== 'ready' || !(event.target instanceof Node) || !viewport.value?.contains(event.target)) return
+  const delta = imageWheelDelta(event.deltaY, event.deltaMode, viewport.value.clientHeight)
+  if (!delta) return
+  const previous = pendingZoom?.scale ?? scale.value
+  const next = wheelImageScale(previous, delta, fitScale.value)
+  if (next === previous) return
+  pendingZoom = { scale: next, anchor: pendingZoom?.anchor ?? captureAnchor({ x: event.clientX, y: event.clientY }) }
+  if (zoomFrame !== undefined) return
+  zoomFrame = requestAnimationFrame(() => {
+    const pending = pendingZoom
+    zoomFrame = undefined; pendingZoom = null
+    if (pending && pending.scale !== scale.value && !closing && status.value === 'ready') applyView(pending.scale, rotation.value, false, pending.anchor)
+  })
+}
 
 function close(): void {
   if (closing) return
   closing = true
+  cancelViewUpdate()
+  clearTimeout(announcementTimer)
   emit('close')
 }
 function resetScroll(): void {
   if (viewport.value) { viewport.value.scrollTop = 0; viewport.value.scrollLeft = 0 }
 }
 function fitToViewport(): void {
-  fit.value = true
-  if (viewport.value) scale.value = fitImageScale(width.value, height.value, viewport.value.clientWidth - 48, viewport.value.clientHeight - 48)
-  void nextTick(resetScroll)
+  if (status.value !== 'ready') return
+  measureViewport()
+  applyView(fitScale.value, rotation.value, true, null)
 }
 function resetImage(): void {
+  cancelViewUpdate()
+  clearTimeout(announcementTimer)
+  announcement.value = ''
   generation.value++
-  width.value = 0; height.value = 0; scale.value = 1; fit.value = true
+  width.value = 0; height.value = 0; scale.value = 1; fit.value = true; rotation.value = 0
   status.value = imageViewerLoadStatus(current.value)
-  void nextTick(resetScroll)
+  const revision = viewRevision
+  void nextTick(() => { if (revision === viewRevision && !closing) resetScroll() })
 }
 function load(event: Event): void {
   const target = event.target as HTMLImageElement
@@ -53,13 +137,23 @@ function load(event: Event): void {
   fitToViewport()
 }
 function fail(event: Event): void {
-  if (event.target === image.value) status.value = 'error'
+  if (event.target === image.value) { cancelViewUpdate(); clearTimeout(announcementTimer); status.value = 'error' }
 }
 function zoom(direction: -1 | 1): void {
-  fit.value = false
-  scale.value = zoomImageScale(scale.value, direction)
+  if (status.value !== 'ready') return
+  const next = zoomImageScale(scale.value, direction, fitScale.value)
+  if (next !== scale.value) applyView(next, rotation.value, false, captureAnchor())
 }
-function originalSize(): void { fit.value = false; scale.value = 1; void nextTick(resetScroll) }
+function originalSize(): void {
+  if (status.value === 'ready') applyView(1, rotation.value, false, captureAnchor())
+}
+function rotate(): void {
+  if (status.value !== 'ready') return
+  const next = nextImageRotation(rotation.value)
+  const size = rotatedImageSize(width.value, height.value, next)
+  const nextScale = fit.value ? fitImageScale(size.width, size.height, viewportSize.value.width - IMAGE_VIEWER_PADDING * 2, viewportSize.value.height - IMAGE_VIEWER_PADDING * 2) : scale.value
+  applyView(nextScale, next, fit.value, captureAnchor())
+}
 function toggleSize(): void {
   if (status.value !== 'ready') return
   if (fit.value) originalSize()
@@ -89,11 +183,16 @@ onMounted(() => {
   previousOverflow = document.body.style.overflow
   document.body.style.overflow = 'hidden'
   dialog.value?.showModal()
-  observer = new ResizeObserver(() => { if (fit.value && status.value === 'ready') fitToViewport() })
+  dialog.value?.addEventListener('wheel', wheel, { passive: false })
+  measureViewport()
+  observer = new ResizeObserver(() => { measureViewport(); if (fit.value && status.value === 'ready') fitToViewport() })
   if (viewport.value) observer.observe(viewport.value)
 })
 onBeforeUnmount(() => {
   generation.value++
+  cancelViewUpdate()
+  clearTimeout(announcementTimer)
+  dialog.value?.removeEventListener('wheel', wheel)
   observer?.disconnect()
   dialog.value?.close()
   if (mounted) document.body.style.overflow = previousOverflow
@@ -110,7 +209,6 @@ onBeforeUnmount(() => {
       @cancel.prevent="close"
       @click.self="close"
       @keydown="keydown"
-      @wheel.stop
     >
       <button
         class="image-viewer-close"
@@ -127,28 +225,35 @@ onBeforeUnmount(() => {
         class="image-viewer-viewport"
         tabindex="0"
         :aria-label="current?.label || copy.image"
+        aria-describedby="image-viewer-hint"
         @click.self="close"
       >
         <div
           class="image-viewer-canvas"
           @click.self="close"
         >
-          <img
+          <div
             v-if="source && status !== 'error'"
-            :key="generation"
-            ref="image"
-            class="image-viewer-image"
+            ref="frame"
+            class="image-viewer-frame"
             :class="{ 'image-viewer-image-loading': status === 'loading' }"
-            :src="source"
-            :alt="current?.label || copy.image"
-            :data-generation="generation"
-            :style="status === 'ready' ? { width: `${width * scale}px`, height: `${height * scale}px` } : undefined"
-            draggable="false"
-            @dblclick.prevent="toggleSize"
-            @dragstart.prevent
-            @load="load"
-            @error="fail"
+            :style="{ width: `${orientedSize.width * scale}px`, height: `${orientedSize.height * scale}px` }"
           >
+            <img
+              :key="generation"
+              ref="image"
+              class="image-viewer-image"
+              :src="source"
+              :alt="current?.label || copy.image"
+              :data-generation="generation"
+              :style="{ width: `${width * scale}px`, height: `${height * scale}px`, transform: `translate(-50%, -50%) rotate(${rotation}deg)` }"
+              draggable="false"
+              @dblclick.prevent="toggleSize"
+              @dragstart.prevent
+              @load="load"
+              @error="fail"
+            >
+          </div>
           <p
             v-if="!current"
             class="image-viewer-message"
@@ -207,20 +312,19 @@ onBeforeUnmount(() => {
           type="button"
           :aria-label="copy.zoomOut"
           :title="copy.zoomOut"
-          :disabled="status !== 'ready' || scale <= 0.1"
+          :disabled="status !== 'ready' || scale <= minimumScale"
           @click="zoom(-1)"
         >
           −
         </button>
         <span
           class="image-viewer-scale"
-          aria-live="polite"
         >{{ Math.round(scale * 100) }}%</span>
         <button
           type="button"
           :aria-label="copy.zoomIn"
           :title="copy.zoomIn"
-          :disabled="status !== 'ready' || scale >= 4"
+          :disabled="status !== 'ready' || scale >= MAX_IMAGE_SCALE"
           @click="zoom(1)"
         >
           +
@@ -249,7 +353,38 @@ onBeforeUnmount(() => {
         >
           100%
         </button>
+        <button
+          type="button"
+          :aria-label="copy.rotate"
+          :title="copy.rotate"
+          :disabled="status !== 'ready'"
+          @click="rotate"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20 7v5h-5M20 12a8 8 0 1 0-2.3 5.7" />
+          </svg>
+        </button>
       </div>
+      <p
+        id="image-viewer-hint"
+        class="image-viewer-hint"
+      >
+        {{ hint }}
+      </p>
+      <span
+        class="image-viewer-announcement"
+        role="status"
+      >{{ announcement }}</span>
     </dialog>
   </Teleport>
 </template>

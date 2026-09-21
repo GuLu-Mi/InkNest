@@ -38,6 +38,7 @@
   margin: 70px 0 0;
   overflow: auto;
   overscroll-behavior: contain;
+  overflow-anchor: none;
   scrollbar-gutter: stable both-edges;
   touch-action: pan-x pan-y;
 }
@@ -52,6 +53,9 @@
   justify-content: center;
 }
 .image-viewer-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: block;
   max-width: none;
   max-height: none;
@@ -59,6 +63,7 @@
   object-fit: contain;
   -webkit-user-drag: none;
 }
+.image-viewer-frame { position: relative; flex: none; overflow: hidden; }
 .image-viewer-image-loading { position: absolute; visibility: hidden; }
 .image-viewer-message { max-width: min(480px, 80vw); text-align: center; color: #e5e6e9; }
 .image-viewer-toolbar {
@@ -70,7 +75,7 @@
   flex: none;
   max-width: calc(100% - 24px);
   min-height: 48px;
-  margin: 18px 12px 26px;
+  margin: 18px 12px 0;
   padding: 5px 12px;
   border: 1px solid rgb(255 255 255 / 15%);
   border-radius: 14px;
@@ -89,6 +94,9 @@
   cursor: pointer;
 }
 .image-viewer-toolbar .image-viewer-text-button { font-size: 13px; white-space: nowrap; }
+.image-viewer-toolbar svg { display: block; margin: auto; }
+.image-viewer-hint { flex: none; margin: 8px 12px 12px; text-align: center; font-size: 12px; color: #c7c9ce; }
+.image-viewer-announcement { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .image-viewer button:hover:not(:disabled) { background: rgb(255 255 255 / 13%); }
 .image-viewer button:disabled { opacity: 0.35; cursor: default; }
 .image-viewer button:focus-visible, .image-viewer-viewport:focus-visible { outline: 2px solid #b8d6ff; outline-offset: 2px; }
