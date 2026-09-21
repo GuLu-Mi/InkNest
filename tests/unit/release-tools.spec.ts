@@ -1,11 +1,37 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
+import { createPackage, uncache } from '@electron/asar'
 
 import { createSmokeBundle } from '../../scripts/create-smoke-bundle.mjs'
-import { inspectExecutableArchitecture, inspectPreloadChannels, inspectPackages, inspectProcessBoundary } from '../../scripts/package-inspection.mjs'
+import { inspectExecutableArchitecture, inspectPreloadChannels, inspectPackages, inspectProcessBoundary, listAsarEntries, textFromAsar } from '../../scripts/package-inspection.mjs'
+
+describe('ASAR inspection on the native build host', () => {
+  it('reads nested entries and lists dependency paths consistently across platforms', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'inknest-asar-'))
+    const source = join(root, 'source')
+    const archive = join(root, 'sample.asar')
+    try {
+      await mkdir(join(source, 'out', 'main'), { recursive: true })
+      await mkdir(join(source, 'node_modules', 'write-file-atomic'), { recursive: true })
+      await writeFile(join(source, 'out', 'main', 'index.js'), '// 固定样本，不执行\n')
+      await writeFile(join(source, 'node_modules', 'write-file-atomic', 'package.json'), '{"name":"write-file-atomic"}')
+      await createPackage(source, archive)
+
+      expect(textFromAsar(archive, 'out/main/index.js')).toBe('// 固定样本，不执行\n')
+      expect(JSON.parse(textFromAsar(archive, 'node_modules/write-file-atomic/package.json'))).toEqual({ name: 'write-file-atomic' })
+      expect(listAsarEntries(archive)).toEqual([
+        'node_modules', 'node_modules/write-file-atomic', 'node_modules/write-file-atomic/package.json',
+        'out', 'out/main', 'out/main/index.js'
+      ])
+    } finally {
+      uncache(archive)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})
 
 describe('native smoke fixture bundle', () => {
   it('creates a deterministic Windows-friendly archive with the required isolated cases', async () => {

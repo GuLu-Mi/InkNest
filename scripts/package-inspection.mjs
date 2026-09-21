@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
-import { basename, join, resolve } from 'node:path'
+import { basename, join, normalize, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { extractFile, listPackage } from '@electron/asar'
@@ -34,8 +34,14 @@ async function sha256(path) {
   return createHash('sha256').update(await readFile(path)).digest('hex')
 }
 
-function textFromAsar(archive, path) {
-  return extractFile(archive, path).toString('utf8')
+export function textFromAsar(archive, path) {
+  // @electron/asar traverses using the host's path separator, including on Windows.
+  return extractFile(archive, normalize(path)).toString('utf8')
+}
+
+export function listAsarEntries(archive) {
+  // Keep package contract checks independent of the host's directory notation.
+  return listPackage(archive).map(entry => entry.split(sep).join('/').replace(/^\//u, '')).sort()
 }
 
 // Explicit contract from docs/contracts.md; never derived from the package under inspection.
@@ -82,7 +88,7 @@ async function inspectImageRuntime(archive, entries, architecture) {
 }
 
 async function inspectPackage(label, archive, executable, expectedArchitecture, expectedVersion) {
-  const entries = listPackage(archive).map((entry) => entry.replace(/^\//u, '')).sort()
+  const entries = listAsarEntries(archive)
   const metadata = JSON.parse(textFromAsar(archive, 'package.json'))
   const main = textFromAsar(archive, 'out/main/index.js')
   const preload = textFromAsar(archive, 'out/preload/index.js')
@@ -135,7 +141,7 @@ export async function inspectPackages({ macApp, winDirectory, expectedVersion })
   }
   if (winDirectory) {
     packages.push(await inspectPackage(
-      'Windows x64 cross-build',
+      'Windows x64',
       join(winDirectory, 'resources', 'app.asar'),
       join(winDirectory, 'InkNest.exe'),
       'x64', expectedVersion
