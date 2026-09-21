@@ -1,0 +1,44 @@
+appId: io.inknest.app
+productName: InkNest
+electronVersion: 44.4.1
+asar: true
+asarUnpack:
+  - node_modules/sharp/**
+  - node_modules/@img/**
+npmRebuild: false
+afterAllArtifactBuild: scripts/nsis-integrity.mjs
+directories:
+  output: release/0.0.15-search-panel
+files:
+  - out/**
+toolsets:
+  nsis: 1.2.1
+mac:
+  fileAssociations:
+    - ext: [md, markdown]
+      name: Markdown document
+      role: Editor
+      rank: Alternate
+  category: public.app-category.productivity
+  identity: "-"
+  hardenedRuntime: false
+  notarize: false
+  minimumSystemVersion: "14.0"
+  target:
+    - target: dmg
+      arch:
+        - arm64
+win:
+  signExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  deleteAppDataOnUninstall: false
+  include: build/installer.nsh

@@ -1,0 +1,48 @@
+# Dependencies and generated output
+node_modules/
+out/
+dist/
+release/
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# Local tools, agent state and development evidence
+.tooling/
+.superpowers/
+.codex/
+.agents/
+docs/local/
+docs/evidence/
+docs/superpowers/
+docs/progress.md
+docs/implementation-schedule.md
+docs/roadmap.md
+docs/implementation-status.md
+docs/validation.md
+docs/native-validation.md
+docs/plans/
+docs/windows-validation.md
+docs/history-outline-presentation-native-checklist.md
+
+# Local configuration and signing material
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.mobileprovision
+.npmrc.local
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

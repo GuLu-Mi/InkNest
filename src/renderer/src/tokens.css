@@ -1,0 +1,47 @@
+/* Animate semantic colors once at the root; descendants inherit the same frame. */
+@property --surface { syntax: "<color>"; inherits: true; initial-value: #fff; }
+@property --surface-muted { syntax: "<color>"; inherits: true; initial-value: #f6f7f8; }
+@property --surface-hover { syntax: "<color>"; inherits: true; initial-value: #eceef1; }
+@property --text-primary { syntax: "<color>"; inherits: true; initial-value: #262930; }
+@property --text-secondary { syntax: "<color>"; inherits: true; initial-value: #626873; }
+@property --border-subtle { syntax: "<color>"; inherits: true; initial-value: #e1e4e8; }
+@property --accent { syntax: "<color>"; inherits: true; initial-value: #315fbd; }
+@property --focus { syntax: "<color>"; inherits: true; initial-value: #326ad1; }
+@property --error-surface { syntax: "<color>"; inherits: true; initial-value: #fff2ee; }
+@property --error-text { syntax: "<color>"; inherits: true; initial-value: #9b3520; }
+@property --warning-surface { syntax: "<color>"; inherits: true; initial-value: #fff9e9; }
+@property --warning-text { syntax: "<color>"; inherits: true; initial-value: #755718; }
+:root {
+  color-scheme: light;
+  --surface: #fff;
+  --surface-muted: #f6f7f8;
+  --surface-hover: #eceef1;
+  --text-primary: #262930;
+  --text-secondary: #626873;
+  --border-subtle: #e1e4e8;
+  --accent: #315fbd;
+  --focus: #326ad1;
+  --error-surface: #fff2ee;
+  --error-text: #9b3520;
+  --warning-surface: #fff9e9;
+  --warning-text: #755718;
+}
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface: #1d1f23;
+    --surface-muted: #26292e;
+    --surface-hover: #333740;
+    --text-primary: #e3e5e9;
+    --text-secondary: #a5acb8;
+    --border-subtle: #3b4049;
+    --accent: #97baff;
+    --focus: #92b7ff;
+    --error-surface: #3d2726;
+    --error-text: #ffb9a8;
+    --warning-surface: #383222;
+    --warning-text: #e8cb85;
+  }
+
+:root { --search-match: #fff0a6; --search-current: #ffb84d; --search-text: #251c0a; }
+[data-theme="dark"] { --search-match: #765c18; --search-current: #ffc260; --search-text: #fff8de; }
+[data-theme="dark"] ::highlight(inknest-search-current), [data-theme="dark"] .cm-editor .search-current { color: #251c0a; }
