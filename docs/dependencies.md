@@ -54,6 +54,7 @@
 - sharp 0.35.4 使用 Node-API 预编译包。Mac 为 darwin-arm64，Windows 为 win32-x64；锁文件包含目标平台不等于本机已经安装它。保留 optional 依赖，跨构建使用隔离生产依赖树。
 - sharp 与 @img 原生文件通过 asarUnpack 解包；当前 npmRebuild:false 不改变目标架构检查要求。平台包中的 libvips/编解码库许可证应随分发保留，不能只列 sharp 的 Apache-2.0。
 - electron-builder 26.15.3 的 NSIS 工具集固定 1.2.1，下载校验由工具配置保留。Mac 提取卸载器的图标补丁兼容问题通过 UninstallIcon 配置及最终双 CRC 验证处理；不修改依赖源码或关闭完整性检查。
+- Windows 的最终卸载器校验使用完整 7-Zip 的 `7z.exe` / `7z.dll`，不能使用 electron-builder 自带的精简 `7za.exe`。macOS 使用 builder 工具集中包含 NSIS 解包能力的 `7zz`（入口名为 `7za`）；工具配置见[开发与构建](development.md)。
 - CodeMirror 搜索只使用 SearchCursor，不挂载另一套编辑器或默认搜索面板。预览高亮库尚未引入；编辑器语法高亮不应用于预览。
 
 ## 升级与许可

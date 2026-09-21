@@ -45,6 +45,8 @@ Electron E2E 前执行 build，避免误测旧 out。完整回归可以显式使
 
 Windows 脚本创建 `.tooling/windows-<version>-*`，用完整锁文件和 win32/x64 参数安装生产依赖，再复制同一 out。不能打入 macOS 的 sharp 二进制。两端需分别检查 .node/动态库架构及 ASAR 外解包位置，跨构建不等于 Windows 原生加载通过。
 
+Windows 本地打包还需安装完整 [7-Zip](https://www.7-zip.org/)：卸载器校验默认使用 `%ProgramFiles%\7-Zip\7z.exe`，同目录需保留 `7z.dll`。自定义安装位置可通过环境变量 `INKNEST_NSIS_7ZIP_PATH` 指定。GitHub Windows runner 已预装完整版本。electron-builder 自带的 Windows `7za.exe` 不支持 NSIS；校验脚本强制按 NSIS 格式提取，防止误读安装包内的应用压缩包。
+
 Mac 使用 ad-hoc 签名，未完成 Developer ID、公证与正式加固。Windows 不签名，采用可选目录的引导式 NSIS；正常卸载保留 AppData 偏好、恢复和历史。`build/installer.nsh` 是源码：保持安装/卸载图标一致，并在最终产物中校验安装器和嵌入卸载器 CRC，不以关闭 CRC 规避问题。所有打包入口禁止自动 publish。
 
 Mac 测试副本可能进入 LaunchServices；实际包测试后的注销仅针对已确认测试路径，不重置全局数据库、不改变默认关联。隐藏构建目录减少普通扫描，不保证主动运行旧包后仍只有一个系统候选。

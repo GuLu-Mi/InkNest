@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { crc32 } from 'node:zlib'
 import { createHash } from 'node:crypto'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { getPath7za } from 'app-builder-lib/out/toolsets/7zip.js'
 const signature = Buffer.from('efbeadde4e756c6c736f6674496e7374', 'hex')
@@ -30,7 +30,19 @@ export function inspectNsis(bytes) {
 export async function inspectNsisInstaller(path, sevenZip) {
   const installer = inspectNsis(await readFile(path))
   assert(!installer.uninstaller, 'Expected installer, received uninstaller')
-  const { stdout } = await promisify(execFile)(sevenZip ?? await getPath7za(), ['e', resolve(path), '-so', '-r', '*Uninstall*.exe'], { encoding: 'buffer', maxBuffer: 16 * 1024 * 1024 })
+  // Builder's Windows 7za.exe cannot read NSIS. Its Unix "7za" is full 7zz.
+  // Force NSIS so a limited tool cannot silently open the nested application 7z.
+  const extractor = sevenZip ?? process.env.INKNEST_NSIS_7ZIP_PATH ?? (process.platform === 'win32'
+    ? join(process.env.ProgramFiles || 'C:\\Program Files', '7-Zip', '7z.exe')
+    : await getPath7za())
+  let stdout
+  try {
+    const extracted = await promisify(execFile)(extractor, ['e', resolve(path), '-tNsis', '-so', '-r', '*Uninstall*.exe'], { encoding: 'buffer', maxBuffer: 16 * 1024 * 1024 })
+    stdout = extracted.stdout
+  } catch (cause) {
+    throw new Error('NSIS extraction failed. Install full 7-Zip (7z.exe with 7z.dll) or set INKNEST_NSIS_7ZIP_PATH to an NSIS-capable executable; standalone Windows 7za.exe is not supported.', { cause })
+  }
+  assert(stdout.length > 0, 'No embedded uninstaller found in NSIS archive')
   const uninstaller = inspectNsis(stdout)
   assert(uninstaller.uninstaller, 'Missing embedded uninstaller')
   return { installer, uninstaller }
