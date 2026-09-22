@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test'
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -20,7 +21,7 @@ async function fixture() {
   page.on('pageerror', error => console.log('renderer error:', error.message))
   await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]!; const events: string[] = []; (w as unknown as { testNativeEvents: string[] }).testNativeEvents = events; w.on('enter-full-screen', () => events.push('enter')); w.on('leave-full-screen', () => events.push('leave')) })
   await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-  await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+  await openDocumentPicker(page)
   await expect(page.locator('.preview h1')).toHaveText('演示正文')
   return { app, page, file, source, root, cleanup: async () => { app.process().kill('SIGKILL'); await rm(root, { recursive: true, force: true }) } }
 }

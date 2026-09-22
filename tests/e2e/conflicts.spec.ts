@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -5,7 +6,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from '@playwright/test'
 async function select(app: ElectronApplication, page: Page, path: string) {
   await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
-  await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+  await openDocumentPicker(page)
 }
 test('external clean reload and background conflict retain current tab; real SaveAs preserves editor undo', async () => {
   const root = await mkdtemp(join(tmpdir(), 'inknest-conflicts-')); const a = join(root, 'a.md'); const b = join(root, 'b.md'); const copy = join(root, 'copy.md')

@@ -83,7 +83,7 @@ Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能
 
 AppEvent 覆盖新建/打开/激活/关闭、系统与链接打开、菜单命令、外部变化、保存回执、恢复状态、历史变化/维护、关闭冻结/解冻与错误，以及 presentation-state。所有按文档路由的事件核对完整 ref；历史变化同时核对 displayPath/generation，避免同 epoch 另存后接受旧列表。
 
-菜单命令当前为 new/open/save/save-as/backups/close/presentation/find/find-next/find-previous。新建和搜索由 main 单入口派发，before-input-event 防止同一快捷键被原生菜单与页面重复执行。
+菜单命令当前为 new/open/save/save-as/backups/close/presentation/find/find-next/find-previous。标签栏 + 只切换 renderer 到首页，不派发 new/open，不改变已登记文档的 ref 或生命周期；首页打开和新建分别调用原 openFile/createDocument。首页期间自动保存、checkpoint 和整窗关闭仍按原 ref 处理全部后台会话。新建和搜索由 main 单入口派发，before-input-event 防止同一快捷键被原生菜单与页面重复执行。
 
 每个特权请求核验 sender、主 frame、精确生产来源 `inknest://app/`（或开发受信 origin）、owner、ref 和精确 schema。主进程原生对话框提供文件选择/覆盖/丢弃意图，页面不能绕过目标版本复核。导航、关闭、迁移、epoch 更新和窗口销毁撤销相应能力/监听。行为时序见[持久化](persistence.md)，图片和外链规则见[安全](security.md)。
 

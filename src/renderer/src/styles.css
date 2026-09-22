@@ -13,7 +13,8 @@ button:disabled { cursor: default; opacity: .5; }
 .shell > header { flex-shrink: 0; }
 .tabs-header { display: flex; align-items: center; height: 48px; padding: 8px 12px 0; gap: 6px; background: var(--surface-muted); border-bottom: 1px solid var(--border-subtle); -webkit-app-region: drag; }
 .mac-titlebar .tabs-header { padding-left: 88px; }
-.document-tabs { display: flex; min-width: 0; max-width: calc(100% - 46px); overflow-x: auto; align-self: stretch; gap: 3px; scrollbar-width: thin; -webkit-app-region: no-drag; }
+.document-tabs { display: flex; min-width: 0; max-width: calc(100% - 46px); overflow-x: auto; overflow-y: hidden; align-self: stretch; gap: 3px; scrollbar-width: none; -webkit-app-region: no-drag; }
+.document-tabs::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .document-tab { display: flex; align-items: center; flex: 0 0 auto; min-width: min(110px, 100%); max-width: min(240px, 100%); border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; }
 .document-tab.selected { background: var(--surface); border-color: var(--border-subtle); }
 .document-tab > [role='tab'] { display: flex; align-items: center; gap: 5px; min-width: 0; flex: 1; border: 0; border-radius: 5px; background: transparent; text-align: left; }
@@ -24,6 +25,10 @@ button:disabled { cursor: default; opacity: .5; }
 .document-tab button:hover { background: var(--surface-hover); }
 .open-tab { align-self: center; flex-shrink: 0; width: 30px; height: 30px; padding: 0; margin-bottom: 7px; font-size: 21px; border-color: transparent; background: transparent; }
 .titlebar-space { flex: 1; min-width: 20px; align-self: stretch; }
+.quick-save { flex-shrink: 0; width: 30px; height: 30px; padding: 5px; margin-bottom: 7px; border-color: transparent; background: transparent; }
+.quick-save svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.document-status-bar { flex-shrink: 0; min-width: 0; padding: 4px 16px; border-top: 1px solid var(--border-subtle); background: var(--surface-muted); }
+.document-status-bar .document-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .document-notices { flex-shrink: 0; min-height: 0; max-height: min(30vh, 280px); overflow: auto; }
 .document-toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: flex-end; gap: 10px; width: min(1080px, calc(100% - 48px)); margin-inline: auto; padding: 10px 0; min-height: 48px; background: var(--surface); z-index: 2; }
 .document-status { margin: 0; min-width: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
@@ -56,7 +61,8 @@ button:disabled { cursor: default; opacity: .5; }
 .supported-files { color: var(--text-secondary); font-size: 12px; margin: 14px 0 0; }
 @media (max-width: 600px) { .document-toolbar { gap: 6px; } .document-status { font-size: 11px; } .document-tab { max-width: min(180px, 100%); } }
 
-@media (max-height: 400px) { .document-stage { padding-block: 12px; } }
+/* Leave room for the status bar and editable body when the window is zoomed. */
+@media (max-height: 400px) { .document-stage { padding-block: 12px; } .document-notices { max-height: 25vh; } }
 .document-workspace { position: relative; flex: 1; display: flex; min-height: 0; min-width: 0; }
 .document-center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .document-outline { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; min-height: 0; padding: 16px 12px; border: 0; border-right: 1px solid var(--border-subtle); background: var(--surface-muted); color: var(--text-primary); font-size: 13px; }
@@ -192,10 +198,4 @@ dialog::backdrop { background: #0005; }
 .document-toolbar-row > .search-bar { top: 0; }
 @media (max-width: 600px) { .search-bar { padding-inline: 16px; } }
 
-/* Keep status changes inside the space preceding the fixed right-hand actions. */
-.document-toolbar > .outline-trigger { margin-right: 0; }
-.document-status-area { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.document-status-area .document-status { overflow-wrap: anywhere; }
-.document-status-area .initial-save { flex-shrink: 0; padding: 2px 8px; min-height: 26px; }
-.open-document { flex-shrink: 0; margin-bottom: 7px; height: 30px; padding: 0 8px; }
 .welcome-create { margin-left: 12px; }

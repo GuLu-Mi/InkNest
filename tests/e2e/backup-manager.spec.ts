@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -27,7 +28,7 @@ test('recovery preview renders safe Markdown with no borrowed image authority an
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }); dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false }) }, path)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click(); await page.getByRole('button', { name: '编辑', exact: true }).click()
+    await openDocumentPicker(page); await page.getByRole('button', { name: '编辑', exact: true }).click()
     await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.insertText('# Draft\n\n![local](image.png)\n\n<script>window.backupUnsafe = true</script>\n\n```mermaid\nflowchart LR\nA[草稿]-->B[备份]\n```\n\n$E=mc^2$')
     await expect(page.locator('.document-status')).toContainText('草稿已备份', { timeout: 7000 })
     // Observe the real privileged resolver: recovery preview must not borrow the active document capability.

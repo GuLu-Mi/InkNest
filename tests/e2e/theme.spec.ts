@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test'
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -12,7 +13,7 @@ test('capsule changes global theme without replacing the editor, persists, and r
   try {
     let page = await app.firstWindow()
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     const dark = page.getByRole('radio', { name: '深色主题' }); const light = page.getByRole('radio', { name: '浅色主题' })
     await light.click(); await expect(light).toHaveAttribute('aria-checked', 'true')
     await page.getByRole('button', { name: '编辑', exact: true }).click()
@@ -48,7 +49,7 @@ test('theme frames keep inherited text and editor surfaces synchronized without 
     const page = await app.firstWindow()
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.locator('.preview strong em')).toBeVisible()
     await page.getByRole('radio', { name: '浅色主题' }).click()
     await expect(page.locator('html')).not.toHaveClass(/theme-transition/)

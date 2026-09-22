@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -5,7 +6,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from '@playwright/test'
 async function open(app: ElectronApplication, page: Page, path: string) {
   await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, path)
-  await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+  await openDocumentPicker(page)
 }
 async function edit(page: Page, text: string) {
   await page.getByRole('button', { name: '编辑', exact: true }).click()
@@ -99,10 +100,10 @@ test('native window timeout rejects old epoch/late replies and preserves complet
     })
     await f.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.close())
     await expect.poll(() => f.app.evaluate(() => typeof Reflect.get(globalThis, 'lateClose'))).toBe('function')
-    await expect(f.page.getByRole('button', { name: '打开文档', exact: true }).first()).toBeDisabled()
+    await expect(f.page.getByRole('button', { name: '返回首页', exact: true })).toBeDisabled()
     const guardedRefs = await f.app.evaluate(() => Reflect.get(globalThis, 'openedCloseRefs') as { docId: string; epoch: string }[])
     for (const [index, ref] of guardedRefs.entries()) expect(await f.page.evaluate(({ ref, index }) => window.inknest.reconcileExternal({ ref, snapshot: { ...ref, revision: 1, text: index === 0 ? '# A complete latest' : '# B complete latest' } }), { ref, index })).toEqual({ status: 'cancelled' })
-    await expect(f.page.getByRole('button', { name: '打开文档', exact: true }).first()).toBeEnabled({ timeout: 7000 })
+    await expect(f.page.getByRole('button', { name: '返回首页', exact: true })).toBeEnabled({ timeout: 7000 })
     const oldRef = await f.app.evaluate(() => Reflect.get(globalThis, 'oldClose').state.ref as { docId: string; epoch: string })
     expect(await f.page.evaluate(ref => window.inknest.closeDocument({ ...ref, epoch: crypto.randomUUID() }), oldRef)).toMatchObject({ status: 'error', error: { code: 'STALE_SESSION' } })
     await f.app.evaluate(() => Reflect.get(globalThis, 'lateClose')())

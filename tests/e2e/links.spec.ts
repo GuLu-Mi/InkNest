@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, writeFile, rm, copyFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -13,7 +14,7 @@ test('only modified text links open; images use plain click; Markdown reuses tab
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ dialog, shell }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); Reflect.set(globalThis, 'linkCalls', []); shell.openExternal = async url => { Reflect.get(globalThis, 'linkCalls').push(url) } }, a)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     const modifier = process.platform === 'darwin' ? 'Meta' as const : 'Control' as const
     await page.getByRole('link', { name: 'Other', exact: true }).click(); await expect(page.getByRole('tab')).toHaveCount(1)
     await page.getByRole('link', { name: 'Web', exact: true }).click(); expect(await app.evaluate(() => Reflect.get(globalThis, 'linkCalls'))).toEqual([])

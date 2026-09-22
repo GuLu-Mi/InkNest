@@ -20,6 +20,7 @@ defineEmits<{ open: []; create: [] }>()
       </p>
       <button
         type="button"
+        class="welcome-open"
         :disabled="busy || disabled"
         @click="$emit('open')"
       >

@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,7 +7,7 @@ import type { ElectronApplication, Page } from '@playwright/test'
 
 async function select(app: ElectronApplication, page: Page, path: string) {
   await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, path)
-  await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+  await openDocumentPicker(page)
 }
 async function decision(app: ElectronApplication, response: number) {
   await app.evaluate(({ dialog }, answer) => { dialog.showMessageBox = async (_window, options) => {

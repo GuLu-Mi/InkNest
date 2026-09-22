@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -11,7 +12,7 @@ test('panels belong to each document and historical navigation always retains ac
   const app = await electron.launch({ executablePath, args: [...(executablePath ? [] : ['.']), `--user-data-dir=${join(root, 'profile')}`], chromiumSandbox: true })
   try {
     const page = await app.firstWindow()
-    const open = async (file: string) => { await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file); await page.getByRole('button', { name: '打开文档', exact: true }).first().click() }
+    const open = async (file: string) => { await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file); await openDocumentPicker(page) }
     await open(a); await page.getByRole('button', { name: '编辑', exact: true }).click()
     await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+End'); await page.keyboard.insertText('\nrevision-two')
     await app.evaluate(({ Menu }) => { Menu.getApplicationMenu()!.items.flatMap(x => x.submenu?.items ?? []).find(x => x.label === '立即保存')!.click() })

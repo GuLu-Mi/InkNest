@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -11,7 +12,7 @@ test('side panels leave the document scrollable selectable and editable at small
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     for (const [width, zoom] of [[1200, 1], [800, 1], [800, 2]] as const) {
       await app.evaluate(({ BrowserWindow }, { width, zoom }) => { const w = BrowserWindow.getAllWindows()[0]!; w.setSize(width, 800); w.webContents.setZoomFactor(zoom) }, { width, zoom })
       await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width / zoom)

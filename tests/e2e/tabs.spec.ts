@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -5,7 +6,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import type { ElectronApplication, Page } from '@playwright/test'
 async function select(app: ElectronApplication, page: Page, path: string) {
   await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, path)
-  await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+  await openDocumentPicker(page)
 }
 test('A/B retain text, selection, undo, mode and scroll across 100 switches without accumulating editors', async () => {
   test.setTimeout(90000)
@@ -182,12 +183,12 @@ for (const order of ['event-first', 'result-first'] as const) test(`successful d
         send(channel, ...args)
       }
     }, { path: b, order })
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect.poll(() => app.evaluate(() => typeof Reflect.get(globalThis, 'finishPicker'))).toBe('function')
     await page.getByRole('textbox').dispatchEvent('compositionstart', { data: '拼' })
     await app.evaluate(() => Reflect.get(globalThis, 'finishPicker')())
     await expect(page.getByRole('alert')).toContainText('输入尚未完成', { timeout: 7000 })
-    await expect(page.getByRole('button', { name: '打开文档', exact: true }).first()).toBeEnabled()
+    await expect(page.getByRole('button', { name: '返回首页', exact: true })).toBeEnabled()
     await expect(page.locator('.document-tabs [role=tab]')).toHaveCount(2)
     await expect(page.getByRole('tab', { name: /a.md/ })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('textbox')).toHaveText('# A latest')

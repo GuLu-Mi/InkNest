@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { createHash } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -5,7 +6,7 @@ import { join } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 async function select(app: ElectronApplication, page: Page, path: string) {
   await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
-  await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+  await openDocumentPicker(page)
 }
 async function edit(page: Page, text: string) { await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+End'); await page.keyboard.insertText(text) }
 test('unchanged opening never touches bytes; independent background auto receipt preserves latest edit and active tab', async () => {
@@ -117,12 +118,12 @@ test('background dirty auto survives an active composition close timeout before 
     // Synthetic composition covers scheduling/close timing; native OS IME remains separate acceptance.
     await page.getByRole('textbox').dispatchEvent('compositionstart', { data: '候选' })
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.close())
-    await expect(page.getByRole('button', { name: '打开文档', exact: true }).first()).toBeDisabled()
+    await expect(page.getByRole('button', { name: '返回首页', exact: true })).toBeDisabled()
     await page.waitForTimeout(2200); expect(await readFile(b, 'utf8')).toBe('# B')
     // Main close and renderer composition both have 5s deadlines; either truthful
     // retained-content message may arrive last. State assertions below stay exact.
     await expect(page.getByRole('alert')).toHaveText(/^(?:输入尚未完成，请完成输入后重试。|暂时无法完成关闭，文档已保留。请稍后重试。)$/u, { timeout: 6000 }); expect(app.windows()).toHaveLength(1)
-    await expect(page.getByRole('button', { name: '打开文档', exact: true }).first()).toBeEnabled(); await expect.poll(() => readFile(b, 'utf8')).toBe('# B pending')
+    await expect(page.getByRole('button', { name: '返回首页', exact: true })).toBeEnabled(); await expect.poll(() => readFile(b, 'utf8')).toBe('# B pending')
     expect(await readFile(a, 'utf8')).toBe('# A'); await expect(page.getByRole('textbox')).toHaveText('# A')
     await page.getByRole('textbox').dispatchEvent('compositionend', { data: '候选' }); await page.getByRole('tab', { name: 'b.md', exact: true }).click(); await expect(page.getByRole('textbox')).toHaveText('# B pending')
   } finally { app.process().kill('SIGKILL'); await rm(root, { recursive: true, force: true }) }

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { copy } from '../../../shared/copy'
 import type { Mode } from '../../../shared/contracts'
-defineProps<{ mode: Mode; editable: boolean; disabled: boolean; status: string; historyOpen: boolean; outlineOpen: boolean; presentationDisabled: boolean; initialSave?: boolean }>()
-const emit = defineEmits<{ mode: [value: Mode]; history: []; outline: []; presentation: []; save: [] }>()
+defineProps<{ mode: Mode; editable: boolean; disabled: boolean; historyOpen: boolean; outlineOpen: boolean; presentationDisabled: boolean }>()
+const emit = defineEmits<{ mode: [value: Mode]; history: []; outline: []; presentation: [] }>()
 </script>
 <template>
   <div class="document-toolbar">
@@ -14,22 +14,6 @@ const emit = defineEmits<{ mode: [value: Mode]; history: []; outline: []; presen
     >
       目录
     </button>
-    <div class="document-status-area">
-      <p
-        class="document-status"
-        role="status"
-      >
-        {{ status }}
-      </p>
-      <button
-        v-if="initialSave"
-        class="initial-save"
-        :disabled="disabled"
-        @click="emit('save')"
-      >
-        {{ copy.initialSave }}
-      </button>
-    </div>
     <button
       v-if="editable"
       type="button"

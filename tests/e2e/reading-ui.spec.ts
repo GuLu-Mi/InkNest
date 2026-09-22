@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -14,7 +15,8 @@ test('reader controls preserve edits, use real actions, and keep wide content lo
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, path)
     await page.getByRole('button', { name: '打开文档', exact: true }).last().click()
     await expect(page.getByRole('tablist')).toBeVisible()
-    await expect(page.getByRole('button', { name: '保存', exact: true })).toHaveCount(0)
+    await expect(page.locator('.document-toolbar').getByRole('button', { name: '保存', exact: true })).toHaveCount(0)
+    await expect(page.locator('.quick-save')).toBeVisible()
     await expect(page.getByText('仅在本机', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: '编辑', exact: true })).toBeVisible()
     await expect(page.locator('.preview')).toContainText('图片不存在')
@@ -110,7 +112,7 @@ test('combined real backup, save and conflict errors keep controls and retained 
     const page = await app.firstWindow()
     await expect(page.getByRole('heading', { name: '打开一份文档' })).toBeVisible()
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await page.getByRole('button', { name: '编辑', exact: true }).click()
     const editor = page.getByRole('textbox')
     await editor.click(); await page.keyboard.press('ControlOrMeta+End'); await page.keyboard.insertText(' local')

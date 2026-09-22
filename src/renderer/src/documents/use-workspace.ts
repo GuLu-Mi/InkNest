@@ -24,7 +24,7 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { c
   const error = computed(() => { void signal.value; return tab.value?.error || tab.value?.saveError || globalError.value })
   const frozen = computed(() => { void signal.value; return workspaceFrozen.value || (tab.value?.frozen ?? false) })
   const historyRestorePending = computed(() => { void signal.value; return pendingHistoryRestore(workspace) })
-  const editingFrozen = computed(() => frozen.value || (session.value?.frozen ?? false))
+  const editingFrozen = computed(() => { void signal.value; return frozen.value || (session.value?.frozen ?? false) })
   const mode = computed(() => { void signal.value; return tab.value?.view.mode ?? 'read' })
   let openingSelections: Map<string, Promise<void>> | null = null
   const createdSelections = new Map<string, Promise<void>>()
@@ -118,6 +118,22 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { c
       else if (result.status === 'error') { if (origin) origin.error = result.error.message; else globalError.value = result.error.message }
     } catch { if (origin) origin.error = copy.openFailedRetained; else globalError.value = copy.openFailed }
     finally { openingSelections = null; busy.value = false; workspace.changed() }
+  }
+  async function showHome(): Promise<boolean> {
+    if (busy.value || editingFrozen.value || surface.canCreate?.() === false) return false
+    busy.value = true
+    const origin = tab.value
+    try {
+      if (!await settle()) {
+        if (tab.value === origin && !editingFrozen.value) editor.value?.focus?.()
+        return false
+      }
+      if (tab.value !== origin || editingFrozen.value || surface.canCreate?.() === false) return false
+      if (origin?.error === copy.compositionPending) origin.error = ''
+      workspace.showHome()
+      globalError.value = ''
+      return true
+    } finally { busy.value = false }
   }
   async function createDocument(): Promise<void> {
     if (busy.value || editingFrozen.value || surface.canCreate?.() === false) return
@@ -414,5 +430,5 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { c
     workspace.changed()
   })
   onBeforeUnmount(() => { stopAutosave(); recoveryScheduler.dispose(); unsubscribeEvents(); unsubscribe(); workspace.dispose(); closing.clear(); pendingSaveAs.clear(); createdSelections.clear() })
-  return { createDocument, openLinked, historyRestorePending, editingFrozen, retryHistoryRestoreReceipt, restoreHistory, retryRecovery, backupsOpen, signal, workspace, tabs, tab, document, session, dirty, mode, busy, frozen, error, activate, closeDocument, setMode, openFile, save, saveAs, canSaveAs, resolveConflict }
+  return { showHome, createDocument, openLinked, historyRestorePending, editingFrozen, retryHistoryRestoreReceipt, restoreHistory, retryRecovery, backupsOpen, signal, workspace, tabs, tab, document, session, dirty, mode, busy, frozen, error, activate, closeDocument, setMode, openFile, save, saveAs, canSaveAs, resolveConflict }
 }

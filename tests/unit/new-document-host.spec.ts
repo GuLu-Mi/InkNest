@@ -20,14 +20,63 @@ function fixture() {
     status: 'ok', value: { requestId: request.requestId, ref: { docId: request.snapshot.docId, epoch: request.snapshot.epoch }, savedRevision: request.snapshot.revision, diskToken: 'a'.repeat(64), savedAt: 'now', displayName: 'saved.md', displayPath: '/saved.md', history: { state: 'recorded', generation: 1, error: null } }
   }))
   const save = vi.fn()
-  vi.stubGlobal('window', { inknest: { onEvent: (fn: typeof event) => { event = fn; return () => {} }, createDocument: create, saveAs, save, checkpoint: vi.fn() } })
+  const open = vi.fn(async () => ({ status: 'cancelled' }))
+  vi.stubGlobal('window', { inknest: { onEvent: (fn: typeof event) => { event = fn; return () => {} }, createDocument: create, openFile: open, activateDocument: vi.fn(async () => ({ status: 'ok' })), saveAs, save, checkpoint: vi.fn() } })
   const renderer = createRenderer<object, object>({ patchProp() {}, insert() {}, remove() {}, createElement: () => ({}), createText: () => ({}), createComment: () => ({}), setText() {}, setElementText() {}, parentNode: () => null, nextSibling: () => null })
-  const editor = ref<ActiveEditor>({ settleComposition: async () => true, setFrozen() {}, focus() {} })
+  const editor = ref<ActiveEditor>({ settleComposition: async () => true, setFrozen() {}, focus: vi.fn() })
   let ws!: ReturnType<typeof useWorkspace>
   const app = renderer.createApp({ setup() { ws = useWorkspace(editor); return () => null } })
   app.mount({}); cleanups.push(() => app.unmount())
-  return { ws, editor, create, saveAs, save, event: (e: AppEvent) => event(e) }
+  return { ws, editor, create, open, saveAs, save, event: (e: AppEvent) => event(e) }
 }
+
+test('home preserves the editing state and undo without creating, saving or choosing a file', async () => {
+  const f = fixture(); await f.ws.createDocument()
+  const session = f.ws.session.value!
+  session.dispatch({ changes: { from: 0, insert: 'keep draft' }, selection: { anchor: 4 } })
+  f.ws.workspace.setView(document, { editorTop: 123 })
+  const state = session.state
+  expect(await f.ws.showHome()).toBe(true)
+  expect(await f.ws.showHome()).toBe(true)
+  expect(f.ws.document.value).toBeNull(); expect(f.ws.workspace.refs).toHaveLength(1)
+  expect(f.create).toHaveBeenCalledTimes(1); expect(f.open).not.toHaveBeenCalled()
+  expect(f.save).not.toHaveBeenCalled(); expect(f.saveAs).not.toHaveBeenCalled()
+  await f.ws.openFile()
+  expect(f.ws.document.value).toBeNull()
+  await f.ws.activate(document)
+  expect(f.ws.session.value).toBe(session); expect(session.state).toBe(state)
+  expect(f.ws.mode.value).toBe('edit'); expect(f.ws.tab.value?.view.editorTop).toBe(123)
+  undo({ state: session.state, dispatch: tx => session.apply([tx]) })
+  expect(session.snapshot().text).toBe('')
+})
+
+test('home waits for composition and refuses to leave when input cannot settle or save outcome is pending', async () => {
+  const f = fixture(); await f.ws.createDocument()
+  const session = f.ws.session.value!
+  session.dispatch({ changes: { from: 0, insert: '候选' } })
+  f.editor.value.settleComposition = async () => false
+  expect(await f.ws.showHome()).toBe(false); expect(f.ws.session.value).toBe(session)
+  expect(f.editor.value.focus).toHaveBeenCalledTimes(1)
+  f.editor.value.settleComposition = async () => true
+  f.saveAs.mockRejectedValueOnce(new Error('reply lost'))
+  await f.ws.save()
+  expect(await f.ws.showHome()).toBe(false)
+  expect(session.snapshot().text).toBe('候选'); expect(f.ws.session.value).toBe(session)
+})
+
+test.each(['activation', 'freeze'] as const)('a delayed home intent cannot override a newer %s', async change => {
+  const f = fixture(); await f.ws.createDocument()
+  let settle!: (value: boolean) => void
+  f.editor.value.settleComposition = () => new Promise(resolve => { settle = resolve })
+  const leaving = f.ws.showHome()
+  expect(await f.ws.showHome()).toBe(false)
+  await f.ws.createDocument(); expect(f.create).toHaveBeenCalledTimes(1)
+  if (change === 'activation') f.ws.workspace.install({ ...document, docId: 'other', epoch: 'other' })
+  else { f.ws.tab.value!.frozen = true; f.ws.workspace.changed() }
+  settle(true)
+  expect(await leaving).toBe(false)
+  expect(f.ws.workspace.active?.docId).toBe(change === 'activation' ? 'other' : 'draft')
+})
 
 test('one create intent installs one editing tab despite event, invocation result and late duplicate', async () => {
   const f = fixture()

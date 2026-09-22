@@ -34,7 +34,7 @@ flowchart TD
   MAIN --> RESOURCE[受控图片 / LinkRouter]
 ```
 
-`renderer/documents/session.ts` 持有源码、revision、编辑状态与保存基准；Vue 订阅派生状态，不能用另一个 v-model 全文覆盖 CodeMirror。`workspace.ts` 持有标签与每标签视图书签、错误和保存状态；`use-workspace.ts` 编排菜单、快照交换和调度。后台会话仍保存状态与独立调度，但不持续挂载正文 DOM。
+`renderer/documents/session.ts` 持有源码、revision、编辑状态与保存基准；Vue 订阅派生状态，不能用另一个 v-model 全文覆盖 CodeMirror。`workspace.ts` 持有标签与每标签视图书签、错误和保存状态；`use-workspace.ts` 编排菜单、快照交换和调度。后台会话仍保存状态与独立调度，但不持续挂载正文 DOM。首页通过 renderer workspace 的 active=null 表达，保留全部会话，切换前结算 IME 并复核来源和冻结状态；不调用新建/打开/关闭接口，main 注册表继续维护后台会话。主进程激活事件可从首页定位到相关文档。
 
 `main/documents/registry.ts` 管理 owner + docId + epoch、规范路径、dev/ino、磁盘 token、已接收快照及源/目标路径锁。主进程正文副本用于持久化和校验，不是第二个编辑来源。active 只决定显示/导航，不授权任意后台文件。
 

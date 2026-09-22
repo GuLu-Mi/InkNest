@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -7,7 +8,7 @@ import { globalListenerCounts, installSurfaceProbe, surfaceMetrics, trackEditor 
 const menu = (app: ElectronApplication, label: string) => app.evaluate(({ Menu }, label) => { Menu.getApplicationMenu()!.items.flatMap(item => item.submenu?.items ?? []).find(item => item.label === label)!.click() }, label)
 async function open(app: ElectronApplication, page: Page, file: string) {
   await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-  await page.getByRole('button', { name: '打开文档', exact: true }).first().click(); await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', file)
+  await openDocumentPicker(page); await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', file)
 }
 async function fixture(text = '# Original\n\n## Child\n\n' + 'A readable paragraph.\n\n'.repeat(80)) {
   const root = await mkdtemp(join(tmpdir(), 'inknest-surfaces-')); const file = join(root, 'source.md'); await writeFile(file, text)
@@ -146,6 +147,14 @@ for (const state of ['readonly', 'missing', 'permission'] as const) test(`${stat
   const { chmod, link } = await import('node:fs/promises')
   const f = await fixture('# Historical C'); const { app, page } = f
   try {
+    await page.evaluate(() => {
+      const events: object[] = []
+      Reflect.set(window, 'sourceInputEvents', events)
+      for (const type of ['beforeinput', 'input', 'compositionstart', 'compositionend']) document.addEventListener(type, event => {
+        const input = event as InputEvent
+        if (event.target instanceof Element && event.target.closest('.cm-content')) events.push({ type, inputType: input.inputType, data: input.data, composing: input.isComposing, trusted: event.isTrusted, time: performance.now(), text: event.target.textContent })
+      }, true)
+    })
     await open(app, page, f.file); await saveText(f, '# Current B')
     if (state === 'readonly') {
       await menu(app, '关闭当前文档'); await expect(page.getByRole('tab')).toHaveCount(0)
@@ -164,5 +173,9 @@ for (const state of ['readonly', 'missing', 'permission'] as const) test(`${stat
     await page.getByRole('button', { name: '返回当前文档', exact: true }).click()
     if (state === 'permission') await chmod(f.file, 0o600)
     if (state !== 'missing') expect(await readFile(f.file, 'utf8')).toBe('# Current B')
-  } finally { if (state === 'permission') await chmod(f.file, 0o600).catch(() => {}); await f.cleanup() }
+  } finally {
+    if (state === 'permission') await chmod(f.file, 0o600).catch(() => {})
+    await writeFile(test.info().outputPath('source-input-events.json'), JSON.stringify({ events: await page.evaluate(() => Reflect.get(window, 'sourceInputEvents')), disk: await readFile(f.file, 'utf8').catch(() => null) }, null, 2))
+    await f.cleanup()
+  }
 })

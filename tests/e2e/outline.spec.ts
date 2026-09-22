@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -11,7 +12,7 @@ test('outline safely shares heading IDs, navigates reading and original editor u
   try {
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     const outline = page.getByRole('navigation', { name: '文档目录', exact: true })
     await expect(outline).toBeVisible()
     await expect(outline.getByRole('button', { name: '中文', exact: true })).toHaveCount(2)
@@ -55,7 +56,7 @@ test('current and historical outlines preserve folds, reading positions and resp
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
     for (const path of [other, file]) {
       await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
-      await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+      await openDocumentPicker(page)
       await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', path)
     }
     await page.getByRole('button', { name: '编辑', exact: true }).click()
@@ -117,7 +118,7 @@ test('heading-free and oversized documents do not reserve a sidebar and explain 
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
     for (const [path, message] of [[file, '此文档没有标题'], [large, '大文件使用纯文本阅读，目录暂不可用']]) {
       await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path!] }) }, path)
-      await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+      await openDocumentPicker(page)
       await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', path!)
       const nav = page.getByRole('navigation', { name: '文档目录', exact: true }); await expect(nav).toHaveCount(0)
       await page.getByRole('button', { name: '文档目录', exact: true }).click(); await expect(nav).toContainText(message!)
@@ -138,7 +139,7 @@ test('reading navigation waits for the authorized preview render and cancels acr
       ipcMain.handle('document:resources', () => new Promise(resolve => Reflect.set(globalThis, 'releaseOutlineRender', () => resolve({ status: 'ok', value: [] }))))
     })
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     const target = page.getByRole('navigation', { name: '文档目录', exact: true }).getByRole('button', { name: 'Target', exact: true })
     await expect(target).toBeVisible(); await expect(page.locator('.preview')).toBeEmpty()
     await target.click()
@@ -149,7 +150,7 @@ test('reading navigation waits for the authorized preview render and cancels acr
     await page.getByRole('button', { name: '编辑', exact: true }).click(); await page.getByRole('button', { name: '预览', exact: true }).click()
     await target.click()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, other)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('heading', { name: 'Other', exact: true })).toBeVisible()
     await app.evaluate(() => Reflect.get(globalThis, 'releaseOutlineRender')())
     await expect(page.locator('.document-stage')).toHaveJSProperty('scrollTop', 0)

@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -14,7 +15,7 @@ test('wide panel toggles preserve body geometry and scroll', async () => {
       await writeFile(test.info().outputPath(name), Buffer.from(await app.evaluate(async ({ BrowserWindow }) => [...(await BrowserWindow.getAllWindows()[0]!.webContents.capturePage()).toPNG()])))
     }
     await app.evaluate(({ BrowserWindow, dialog }, file) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080); dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.locator('.preview h1')).toHaveText('Stable')
     await page.getByRole('button', { name: '关闭目录', exact: true }).click()
     const geometry = () => page.locator('.document-content').evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, width: r.width, height: r.height, scroll: document.querySelector('.document-stage')!.scrollTop } })
@@ -52,7 +53,7 @@ test('scroll edges follow the viewport and history while narrow reflow preserves
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.locator('.preview h1')).toHaveText('Scroll boundaries')
     const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     const closePanels = async () => {

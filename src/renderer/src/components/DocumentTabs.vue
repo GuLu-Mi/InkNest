@@ -5,7 +5,7 @@ import type { SessionRef } from '../../../shared/contracts'
 import { copy } from '../../../shared/copy'
 import type { TabState } from '../documents/workspace'
 const props = defineProps<{ tabs: readonly TabState[]; active: SessionRef | null; disabled: boolean; busy: boolean }>()
-const emit = defineEmits<{ activate: [ref: SessionRef]; close: [ref: SessionRef]; open: []; create: [] }>()
+const emit = defineEmits<{ activate: [ref: SessionRef, keyboard?: boolean]; close: [ref: SessionRef]; home: [] }>()
 const strip = ref<HTMLElement>()
 const selected = (tab: TabState) => props.active?.docId === tab.document.docId && props.active.epoch === tab.document.epoch
 function revealActive(): void { strip.value?.querySelector('[aria-selected="true"]')?.closest('.document-tab')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }
@@ -13,6 +13,12 @@ watch(() => props.active, async () => { await nextTick(); revealActive() })
 const resize = new ResizeObserver(revealActive)
 onMounted(() => { if (strip.value) resize.observe(strip.value) })
 onBeforeUnmount(() => resize.disconnect())
+function scrollTabs(event: WheelEvent): void {
+  const element = strip.value
+  if (!element || element.scrollWidth <= element.clientWidth || event.deltaX || !event.deltaY || event.ctrlKey) return
+  event.preventDefault()
+  element.scrollLeft += event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientWidth : 1)
+}
 function navigate(event: KeyboardEvent, index: number): void {
   let next: number
   if (event.key === 'ArrowRight') next = (index + 1) % props.tabs.length
@@ -21,7 +27,7 @@ function navigate(event: KeyboardEvent, index: number): void {
   else if (event.key === 'End') next = props.tabs.length - 1
   else return
   event.preventDefault(); strip.value?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
-  emit('activate', props.tabs[next]!.document)
+  emit('activate', props.tabs[next]!.document, true)
 }
 </script>
 <template>
@@ -31,6 +37,7 @@ function navigate(event: KeyboardEvent, index: number): void {
       class="document-tabs"
       role="tablist"
       :aria-label="copy.tabs"
+      @wheel="scrollTabs"
     >
       <div
         v-for="(tab, index) in tabs"
@@ -43,7 +50,7 @@ function navigate(event: KeyboardEvent, index: number): void {
           type="button"
           role="tab"
           :aria-selected="selected(tab)"
-          :tabindex="selected(tab) ? 0 : -1"
+          :tabindex="selected(tab) || (!active && index === 0) ? 0 : -1"
           :title="tab.document.displayPath ?? tab.document.displayName"
           :disabled="disabled"
           @click="emit('activate', tab.document)"
@@ -75,21 +82,13 @@ function navigate(event: KeyboardEvent, index: number): void {
     <button
       type="button"
       class="open-tab"
-      :aria-label="copy.newDocument"
-      :title="copy.newDocument"
+      :aria-label="copy.home"
+      :title="copy.home"
+      :aria-pressed="!active"
       :disabled="disabled || busy"
-      @click="emit('create')"
+      @click="emit('home')"
     >
       +
-    </button>
-    <button
-      type="button"
-      class="open-document"
-      :aria-label="copy.openDocument"
-      :disabled="disabled || busy"
-      @click="emit('open')"
-    >
-      打开…
     </button>
     <div class="titlebar-space" />
     <slot />

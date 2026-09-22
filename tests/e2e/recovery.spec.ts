@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -9,7 +10,7 @@ test('checkpoint survives a killed isolated app, recovery stays unsaved and gate
   try {
     let page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click(); await page.getByRole('button', { name: '编辑', exact: true }).click()
+    await openDocumentPicker(page); await page.getByRole('button', { name: '编辑', exact: true }).click()
     await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+End'); await page.keyboard.insertText(' local')
     await expect(page.locator('.document-status')).toContainText('草稿已备份', { timeout: 7000 }); expect(await readFile(path, 'utf8')).toBe('# old')
     const exited = new Promise<void>(resolve => app.process().once('exit', () => resolve())); app.process().kill('SIGKILL'); await exited
@@ -38,7 +39,7 @@ test('first checkpoint failure never displays backed up; retry and already-open 
   const app = await electron.launch({ args: ['.', `--user-data-dir=${profile}`], chromiumSandbox: true })
   try {
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) }); await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click(); await page.getByRole('button', { name: '编辑', exact: true }).click()
+    await openDocumentPicker(page); await page.getByRole('button', { name: '编辑', exact: true }).click()
     await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+End'); await page.keyboard.insertText(' local')
     await expect(page.locator('.document-status')).toContainText('草稿备份失败', { timeout: 7000 }); await expect(page.locator('.document-status')).not.toContainText('已备份'); expect(await readFile(path, 'utf8')).toBe('old')
     await rm(join(profile, 'recovery')); await mkdir(join(profile, 'recovery'))

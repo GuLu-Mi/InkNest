@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -24,7 +25,7 @@ test('preview resolves resources only for initial render, content revisions and 
     })
     const requests = () => app.evaluate(() => Reflect.get(globalThis, 'previewRequests') as { docId: string; epoch: string }[])
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, first)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('heading', { name: 'First' })).toBeVisible()
     expect(await requests()).toHaveLength(1)
     await page.getByRole('button', { name: '编辑', exact: true }).click()
@@ -44,7 +45,7 @@ test('preview resolves resources only for initial render, content revisions and 
     await expect(page.locator('.preview')).toContainText('Changed content')
     expect(await requests()).toHaveLength(2)
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, second)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('button', { name: '编辑', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Second' })).toBeVisible()
     const calls = await requests()
@@ -82,7 +83,7 @@ test('opens Chinese Markdown, displays authorized PNG, blocks remote requests an
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, document)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('heading', { name: '本地阅读' })).toBeVisible()
     await expect(page.getByAltText('合法')).toBeVisible()
     await expect.poll(() => page.getByAltText('合法').evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(1)
@@ -93,12 +94,12 @@ test('opens Chinese Markdown, displays authorized PNG, blocks remote requests an
     const oldUrl = await page.getByAltText('合法').getAttribute('src')
     expect(await app.evaluate(async ({ net }, url) => (await net.fetch(url!, { cache: 'no-store' })).status, oldUrl)).toBe(200)
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, join(root, 'missing.md'))
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('alert')).toContainText('文件不存在')
     await expect(page.getByRole('heading', { name: '本地阅读' })).toBeVisible()
     const next = join(root, 'next.md'); await writeFile(next, '# 第二份')
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, next)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('heading', { name: '第二份' })).toBeVisible()
     expect(await app.evaluate(async ({ net }, url) => (await net.fetch(url!, { cache: 'no-store' })).status, oldUrl)).toBe(200)
     await page.waitForTimeout(200)
@@ -117,20 +118,20 @@ test('reports size and encoding limits, allows scrolling, and treats picker canc
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, large)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('status')).toContainText('只读 · 文件过大')
     await expect(page.locator('.plain-document')).toBeVisible()
     expect(await page.locator('.document-stage').evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
     await app.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] }) })
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(page.locator('.plain-document')).toBeVisible()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, huge)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('alert')).toContainText('文件过大')
     await expect(page.locator('.plain-document')).toBeVisible()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, unsupported)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.locator('.document-status')).toContainText('此文件的编码暂不支持编辑')
     const current = await page.evaluate(() => window.inknest.openFile())
     if (current.status !== 'ok') throw new Error('No session')
@@ -149,7 +150,7 @@ test('clears previous document preview during a new session render and keeps it 
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, first)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('heading', { name: '旧文档正文' })).toBeVisible()
     // Fault injection remains in the Playwright main process, outside the production bridge.
     await app.evaluate(({ ipcMain }) => {
@@ -159,7 +160,7 @@ test('clears previous document preview during a new session render and keeps it 
       }))
     })
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, next)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('tab', { selected: true })).toContainText('next.md')
     await expect(page.getByText('正在生成预览…')).toBeVisible()
     await expect(page.getByRole('heading', { name: '旧文档正文' })).toHaveCount(0)
@@ -168,7 +169,7 @@ test('clears previous document preview during a new session render and keeps it 
     await expect(page.getByRole('alert')).toContainText('预览失败')
     await expect(page.locator('.preview')).toBeEmpty()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, final)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('heading', { name: '最后文档' })).toBeVisible()
     await expect(page.getByRole('alert')).toHaveCount(0)
   } finally { app.process().kill('SIGKILL'); await rm(root, { recursive: true, force: true }) }

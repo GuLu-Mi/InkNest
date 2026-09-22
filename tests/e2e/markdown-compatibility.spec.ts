@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { test, expect, _electron as electron } from '@playwright/test'
 import { mkdtemp, readFile, writeFile, rm, copyFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -21,7 +22,7 @@ test('renders the complete compatibility fixture under production CSP and preser
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
   try {
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, path)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('heading', { name: 'Markdown 兼容样本 ✨', exact: true })).toBeVisible()
     await expect(page.locator('.diagram-failed pre').filter({ hasText: 'this is not a diagram' })).toHaveCount(1, { timeout: 30_000 })
     await expect(page.locator('.diagram-view svg')).toHaveCount(13, { timeout: 45_000 })
@@ -94,7 +95,7 @@ test('isolates malformed, configured and unsafe rich blocks while keeping the do
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, path)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.locator('.diagram-failed')).toContainText('自定义配置暂不支持')
     await expect(page.locator('.diagram-view svg')).toHaveCount(1, { timeout: 30_000 })
     await expect(page.locator('.math-rendered math')).toHaveCount(1)

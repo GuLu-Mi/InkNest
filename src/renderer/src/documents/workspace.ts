@@ -131,6 +131,7 @@ export class WorkspaceModel {
     this.changed()
     return true
   }
+  showHome(): void { this.selected = null; this.changed() }
   activate(ref: SessionRef): void { if (this.tabs.has(key(ref))) { this.selected = { docId: ref.docId, epoch: ref.epoch }; this.changed() } }
   remove(ref: SessionRef): void {
     const tab = this.tabs.get(key(ref)); if (!tab) return

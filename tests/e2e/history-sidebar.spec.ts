@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -11,7 +12,7 @@ test('historical display isolates editing and routes native and keyboard Save As
   try {
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await page.getByRole('button', { name: '编辑', exact: true }).click()
     await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.insertText('# Version B\n\nnew')
     await page.keyboard.press('ControlOrMeta+s'); await expect.poll(() => readFile(file, 'utf8')).toContain('Version B')
@@ -49,7 +50,7 @@ for (const retryFrom of ['same', 'other'] as const) test(`lost committed restore
     page.on('pageerror', error => pageErrors.push(error.message))
     for (const path of [other, file]) {
       await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
-      await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+      await openDocumentPicker(page)
       await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', path)
     }
     await page.getByRole('button', { name: '编辑', exact: true }).click()
@@ -116,7 +117,7 @@ test('history layout remains reachable, returns reading position, reports unavai
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
     for (const path of [other, file]) {
       await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
-      await page.getByRole('button', { name: '打开文档', exact: true }).first().click(); await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', path)
+      await openDocumentPicker(page); await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', path)
     }
     await page.getByRole('button', { name: '编辑', exact: true }).click(); await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+Home'); await page.keyboard.insertText('Current ')
     await page.getByRole('button', { name: '预览', exact: true }).last().click(); await expect.poll(() => readFile(file, 'utf8')).toContain('Current ')
@@ -179,7 +180,7 @@ test('restore cancellation and actual backup-directory failure retain the previe
   try {
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }); dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click(); await page.getByRole('button', { name: '编辑', exact: true }).click()
+    await openDocumentPicker(page); await page.getByRole('button', { name: '编辑', exact: true }).click()
     await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.insertText('# B'); await page.keyboard.press('ControlOrMeta+s')
     await expect.poll(() => readFile(file, 'utf8')).toBe('# B')
     await page.getByRole('button', { name: '历史版本', exact: true }).click(); await page.getByRole('complementary', { name: '历史版本' }).getByRole('button', { name: '预览', exact: true }).last().click()
@@ -211,7 +212,7 @@ test('history list restores its own scroll after switching tabs and reloading me
   const app = await electron.launch({ args: ['.', `--user-data-dir=${join(root, 'profile')}`], chromiumSandbox: true })
   try {
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
-    for (const path of [other, file]) { await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path); await page.getByRole('button', { name: '打开文档', exact: true }).first().click(); await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', path) }
+    for (const path of [other, file]) { await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path); await openDocumentPicker(page); await expect(page.getByRole('tab', { selected: true })).toHaveAttribute('title', path) }
     await page.getByRole('button', { name: '编辑', exact: true }).click()
     for (let i = 1; i <= 12; i++) { await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.insertText('# version ' + i); await page.keyboard.press('ControlOrMeta+s'); await expect.poll(() => readFile(file, 'utf8')).toBe('# version ' + i) }
     await page.getByRole('button', { name: '历史版本', exact: true }).click()
@@ -231,7 +232,7 @@ test('saved history shows the latest auto content and manual save seals it witho
   try {
     const page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1920, 1080) })
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }) }, file)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await page.getByRole('button', { name: '编辑', exact: true }).click()
     const edit = async (text: string) => { await page.getByRole('textbox').focus(); await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.insertText(text) }
     await edit('# B'); await expect.poll(() => readFile(file, 'utf8')).toBe('# B')

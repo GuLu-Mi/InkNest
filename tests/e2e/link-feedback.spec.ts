@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtemp, mkdir, writeFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -20,7 +21,7 @@ test('parent documents, explicit anchors and Finder targets open directly; failu
       shell.showItemInFolder = path => { Reflect.get(globalThis, 'fileCalls').push(['reveal', path]) }
       shell.openPath = async path => { Reflect.get(globalThis, 'fileCalls').push(['directory', path]); return '' }
     }, source)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await expect(page.getByRole('heading', { name: '兼容性', exact: true })).toBeVisible()
     await app.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => { throw new Error('Link must not launch a picker') } })
     const modifiers = [process.platform === 'darwin' ? 'Meta' as const : 'Control' as const]

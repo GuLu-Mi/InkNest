@@ -117,6 +117,18 @@ const status = computed(() => {
 })
 const hasNotices = computed(() => { void signal.value; return !!historyRestorePending.value || !!backupError.value || (recoveryCount.value > 0 && !recoveryDismissed.value) || !!tab.value?.historyAttention || !!tab.value?.historyMaintenance || !!tab.value?.recoveryError || !!error.value || (!!tab.value && tab.value.diskStatus !== 'current') })
 const isMac = /Mac/.test(navigator.platform)
+async function activateTab(ref: SessionRef, keyboard = false): Promise<void> {
+  await activate(ref)
+  await nextTick()
+  if (keyboard && workspace.active?.docId === ref.docId && workspace.active.epoch === ref.epoch) {
+    window.document.querySelector<HTMLButtonElement>('.document-tabs [aria-selected="true"]')?.focus()
+  }
+}
+async function openHome(): Promise<void> {
+  if (!await ws.showHome()) return
+  await nextTick()
+  window.document.querySelector<HTMLButtonElement>('.welcome-open')?.focus()
+}
 watchEffect(() => { window.document.title = document.value ? `${dirty.value ? '* ' : ''}${document.value.displayName} · InkNest` : 'InkNest' })
 watch(presenting, async (value, before) => { if (before && !value) { await nextTick(); window.document.querySelector<HTMLButtonElement>('.presentation-trigger')?.focus() } })
 function preventUnload(event: BeforeUnloadEvent): void { if (workspace.refs.length) { event.preventDefault(); event.returnValue = '' } }
@@ -147,12 +159,27 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
           :tabs="tabs"
           :active="workspace.active"
           :disabled="frozen"
-          :busy="busy"
-          @activate="activate"
+          :busy="busy || editingFrozen || presentationPending || backupsOpen || historyWorking"
+          @activate="activateTab"
           @close="closeDocument"
-          @open="openFile"
-          @create="createDocument"
+          @home="openHome"
         >
+          <button
+            v-if="document"
+            type="button"
+            class="quick-save"
+            :aria-label="copy.save"
+            :title="`${copy.save}（${isMac ? '⌘S' : 'Ctrl+S'}）`"
+            :disabled="!session || editingFrozen || busy || presentationPending || historyWorking || !!historical"
+            @click="save"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M5 3h12l4 4v14H3V3h2Zm2 0v6h10V3M7 21v-8h10v8M14 4v3" />
+            </svg>
+          </button>
           <button
             v-if="!document && recoveryCount > 0"
             class="welcome-recovery"
@@ -339,11 +366,8 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
               :editable="!!session"
               :disabled="editingFrozen || presentationPending"
               :presentation-disabled="!presentationAllowed"
-              :status="status"
-              :initial-save="!document.displayPath"
               :history-open="historyOpen"
               :outline-open="outlineVisible"
-              @save="save"
               @presentation="presentation.enter"
               @outline="outline.toggleOpen"
               @mode="setMode"
@@ -465,6 +489,18 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
         @open="openFile"
         @create="createDocument"
       />
+      <footer
+        v-if="document && !historical"
+        class="document-status-bar"
+      >
+        <p
+          class="document-status"
+          role="status"
+          :title="status"
+        >
+          {{ status }}
+        </p>
+      </footer>
     </template>
     <BackupManagerDialog
       :open="backupsOpen"

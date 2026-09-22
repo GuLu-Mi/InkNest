@@ -41,15 +41,20 @@ async function type(page: Page, text: string) {
   await page.getByRole('textbox', { name: 'Markdown 源码' }).focus()
   await page.keyboard.press('ControlOrMeta+a'); if (text) await page.keyboard.insertText(text); else await page.keyboard.press('Backspace')
 }
+async function capture(app: ElectronApplication, page: Page, name: string) {
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  await writeFile(test.info().outputPath(name), Buffer.from(await app.evaluate(async ({ BrowserWindow }) => [...(await BrowserWindow.getAllWindows()[0]!.webContents.capturePage()).toPNG()])))
+}
 
-test('welcome, plus, menu and native shortcut create one empty editing tab per action; numbering and tab limit', async () => {
+test('home choices, menu and native shortcut create one empty editing tab per action; numbering and tab limit', async () => {
   const f = await fixture()
   try {
     await f.page.locator('.welcome-create').click()
     await expect(f.page.getByRole('textbox')).toBeFocused()
     await expect(f.page.locator('.document-status')).toHaveText('尚未保存到文件')
     await expect(f.page.locator('.tab-dot')).toHaveCount(0)
-    await f.page.getByRole('button', { name: '新建文档', exact: true }).click()
+    await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await f.page.locator('.welcome-create').click()
     await newShortcut(f.app)
     await expect(f.page.getByRole('tab')).toHaveCount(3)
     await newShortcut(f.app, true)
@@ -62,7 +67,8 @@ test('welcome, plus, menu and native shortcut create one empty editing tab per a
     await expect(f.page.getByRole('tab', { name: '未命名-5', exact: true })).toHaveAttribute('aria-selected', 'true')
     await f.page.evaluate(async () => { for (let i = 0; i < 16; i++) await window.inknest.createDocument() })
     await expect(f.page.getByRole('tab')).toHaveCount(20)
-    await f.page.getByRole('button', { name: '新建文档', exact: true }).click()
+    await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await f.page.locator('.welcome-create').click()
     await expect(f.page.getByRole('alert')).toContainText('20')
     await expect(f.page.getByRole('tab')).toHaveCount(20)
     expect(await f.page.evaluate(() => window.inknest.listRecovery())).toEqual({ status: 'ok', value: [] })
@@ -83,7 +89,7 @@ test('first save preserves raw text, undo, selection and preview resources; empt
     await f.page.getByRole('button', { name: '关闭历史', exact: true }).click()
     await writeFile(join(f.root, 'two-by-three.png'), await readFile('tests/fixtures/images/two-by-three.png'))
     await saveTarget(f.app, join(f.root, '首存'))
-    await f.page.getByRole('button', { name: '保存…', exact: true }).click()
+    await f.page.getByRole('button', { name: '保存', exact: true }).click()
     await expect(f.page.locator('.document-status')).toContainText('已保存')
     expect(await readFile(join(f.root, '首存.md'), 'utf8')).toBe(source)
     await expect(f.page.locator('.preview img')).toHaveCount(1)
@@ -130,6 +136,7 @@ test('cancel, failed write and lost receipt retain content; retry checks the exa
     await f.page.getByRole('button', { name: '重试', exact: true }).click()
     await expect(f.page.getByText(/保存结果尚未确认/)).toBeVisible()
     await expect(f.page.getByRole('textbox')).toHaveAttribute('contenteditable', 'false')
+    await expect(f.page.getByRole('button', { name: '返回首页', exact: true })).toBeDisabled()
     expect(await readFile(target, 'utf8')).toBe('保留全部内容')
     await f.page.getByRole('button', { name: '重试', exact: true }).click()
     await expect(f.page.getByRole('tab', { name: 'retry.md', exact: true })).toBeVisible()
@@ -145,6 +152,8 @@ test('window exit preserves all drafts; single close defaults cancel, saves then
   try {
     await f.page.locator('.welcome-create').click(); await type(f.page, '草稿 A')
     await newShortcut(f.app); await type(f.page, '草稿 B')
+    await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await expect(f.page.locator('.welcome-create')).toBeVisible()
     await f.app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.close() })
     await expect(f.page.locator('.document-status')).toContainText('请先保存或关闭此文档，再退出')
     await expect(f.page.getByRole('tab')).toHaveCount(2)
@@ -162,6 +171,81 @@ test('window exit preserves all drafts; single close defaults cancel, saves then
     await f.page.getByRole('button', { name: '关闭第 1 个文档', exact: true }).click()
     await expect(f.page.locator('.welcome-create')).toBeVisible()
     expect(await f.page.evaluate(() => window.inknest.listRecovery())).toEqual({ status: 'ok', value: [] })
+  } finally { await f.cleanup() }
+})
+
+test('home retains draft undo and named autosave, opens only on choice and preserves the current save action', async () => {
+  const f = await fixture()
+  try {
+    await f.app.evaluate(({ dialog }) => {
+      Reflect.set(globalThis, 'homeOpenCount', 0)
+      dialog.showOpenDialog = async () => { Reflect.set(globalThis, 'homeOpenCount', Reflect.get(globalThis, 'homeOpenCount') + 1); return { canceled: true, filePaths: [] } }
+    })
+    await f.page.locator('.welcome-create').click(); await type(f.page, '# 保留草稿')
+    await f.page.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(f.page.getByRole('textbox')).toBeFocused()
+    await expect(f.page.locator('.document-toolbar .document-status, .initial-save, .open-document')).toHaveCount(0)
+    await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await expect(f.page.locator('.welcome-open')).toBeFocused()
+    await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await expect(f.page.getByRole('tab')).toHaveCount(1)
+    await expect(f.page.getByRole('tab', { selected: true })).toHaveCount(0)
+    await expect(f.page.getByRole('tab')).toHaveAttribute('tabindex', '0')
+    expect(await f.app.evaluate(() => Reflect.get(globalThis, 'homeOpenCount'))).toBe(0)
+    await expect.poll(() => f.page.evaluate(async () => { const r = await window.inknest.listRecovery(); return r.status === 'ok' ? r.value.length : -1 })).toBe(1)
+    await f.page.locator('.welcome-open').click()
+    await expect(f.page.locator('.welcome-create')).toBeVisible()
+    expect(await f.app.evaluate(() => Reflect.get(globalThis, 'homeOpenCount'))).toBe(1)
+    await f.page.getByRole('tab').click()
+    await expect(f.page.getByRole('textbox')).toHaveText('# 保留草稿')
+    await f.page.getByRole('textbox').focus(); await f.page.keyboard.press('ControlOrMeta+z')
+    await expect(f.page.getByRole('textbox')).toHaveText('')
+    await f.page.keyboard.press('ControlOrMeta+Shift+z')
+    const path = join(f.root, 'saved.md'); await saveTarget(f.app, path)
+    await f.page.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(f.page.locator('.document-status-bar')).toContainText('已保存')
+    await type(f.page, '# 在首页继续自动保存')
+    await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await expect.poll(() => readFile(path, 'utf8')).toBe('# 在首页继续自动保存')
+    const opened = join(f.root, 'opened.md'); await writeFile(opened, '# 从首页打开')
+    await f.app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, opened)
+    await f.page.locator('.welcome-open').click()
+    await expect(f.page.locator('.preview h1')).toHaveText('从首页打开')
+    await expect(f.page.getByRole('tab')).toHaveCount(2)
+  } finally { await f.cleanup() }
+})
+
+test('overflowing tabs hide both scrollbars and remain reachable by wheel and keyboard in both themes', async () => {
+  const f = await fixture()
+  try {
+    await f.page.locator('.welcome-create').click()
+    await f.page.evaluate(async () => { for (let i = 0; i < 11; i++) await window.inknest.createDocument() })
+    await expect(f.page.getByRole('tab')).toHaveCount(12)
+    for (const theme of ['light', 'dark'] as const) {
+      await f.page.getByRole('radio', { name: theme === 'light' ? '浅色主题' : '深色主题' }).click()
+      await expect(f.page.locator('html')).not.toHaveClass(/theme-transition/)
+      const strip = f.page.locator('.document-tabs')
+      expect(await strip.evaluate(el => ({ hidden: getComputedStyle(el).scrollbarWidth, webkit: getComputedStyle(el, '::-webkit-scrollbar').display, overflowing: el.scrollWidth > el.clientWidth, vertical: el.scrollHeight > el.clientHeight }))).toEqual({ hidden: 'none', webkit: 'none', overflowing: true, vertical: false })
+      await strip.hover(); await f.page.mouse.wheel(0, -5000)
+      await expect.poll(() => strip.evaluate(el => el.scrollLeft)).toBe(0)
+      await f.page.getByRole('tab').first().click()
+      await expect(f.page.getByRole('tab').first()).toHaveAttribute('aria-selected', 'true')
+      await f.page.getByRole('tab').first().focus(); await f.page.keyboard.press('End')
+      await expect(f.page.getByRole('tab').last()).toBeFocused()
+      await expect(f.page.getByRole('tab').last()).toHaveAttribute('aria-selected', 'true')
+      await expect.poll(() => strip.evaluate(el => el.scrollLeft)).toBeGreaterThan(0)
+      await f.page.keyboard.press('Home')
+      await expect(f.page.getByRole('tab').first()).toBeFocused()
+      await expect(f.page.getByRole('tab').first()).toHaveAttribute('aria-selected', 'true')
+      await f.page.keyboard.press('ArrowRight')
+      await expect(f.page.getByRole('tab').nth(1)).toBeFocused()
+      await expect(f.page.getByRole('tab').nth(1)).toHaveAttribute('aria-selected', 'true')
+      await capture(f.app, f.page, 'tabs-save-' + theme + '.png')
+      await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+      await expect(f.page.locator('.welcome-create')).toBeVisible()
+      await capture(f.app, f.page, 'home-' + theme + '.png')
+      await f.page.getByRole('tab').last().click()
+    }
   } finally { await f.cleanup() }
 })
 
@@ -211,12 +295,40 @@ test('strict create IPC, two themes and 200 percent narrow layout keep controls 
       await f.page.getByRole('radio', { name: theme === 'light' ? '浅色主题' : '深色主题' }).click()
       await expect(f.page.locator('html')).toHaveAttribute('data-theme', theme)
       await expect(f.page.locator('html')).not.toHaveClass(/theme-transition/)
-      for (const selector of ['.open-tab', '.open-document', '.initial-save', '.presentation-trigger']) {
+      for (const selector of ['.open-tab', '.quick-save', '.document-status-bar', '.presentation-trigger']) {
         const rect = await f.page.locator(selector).boundingBox(); const size = await f.page.evaluate(() => ({ width: innerWidth, height: innerHeight }))
         expect(rect).not.toBeNull(); expect(rect!.x).toBeGreaterThanOrEqual(0); expect(rect!.x + rect!.width).toBeLessThanOrEqual(size.width + 1)
         expect(rect!.y + rect!.height).toBeLessThanOrEqual(size.height)
       }
-      await writeFile(test.info().outputPath('new-document-' + theme + '-200.png'), Buffer.from(await f.app.evaluate(async ({ BrowserWindow }) => [...(await BrowserWindow.getAllWindows()[0]!.webContents.capturePage()).toPNG()])))
+      await capture(f.app, f.page, 'new-document-' + theme + '-200.png')
     }
+  } finally { await f.cleanup() }
+})
+
+test('home waits for unfinished composition and returns focus without dropping text, mode or scroll', async () => {
+  const f = await fixture()
+  try {
+    await f.page.locator('.welcome-create').click()
+    const source = Array.from({ length: 80 }, (_, i) => `第 ${i + 1} 行内容`).join('\n')
+    await type(f.page, source)
+    const editor = f.page.getByRole('textbox', { name: 'Markdown 源码' })
+    await f.page.locator('.cm-scroller').evaluate(el => { el.scrollTop = 400 })
+    await expect.poll(() => f.page.locator('.cm-scroller').evaluate(el => el.scrollTop)).toBe(400)
+    await editor.dispatchEvent('compositionstart', { data: '拼' })
+    await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await expect(f.page.getByRole('alert')).toContainText('输入尚未完成', { timeout: 7000 })
+    await expect(editor).toBeFocused()
+    await expect(f.page.locator('.welcome-stage')).toHaveCount(0)
+    await expect(f.page.getByRole('tab')).toHaveCount(1)
+    await editor.dispatchEvent('compositionend', { data: '拼' })
+    await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await expect(f.page.locator('.welcome-open')).toBeFocused()
+    await f.page.getByRole('tab').click()
+    await expect(editor).toBeVisible()
+    await expect(f.page.getByRole('alert')).toHaveCount(0)
+    await expect.poll(() => f.page.locator('.cm-scroller').evaluate(el => el.scrollTop)).toBe(400)
+    const target = join(f.root, 'composition.md'); await saveTarget(f.app, target)
+    await f.page.getByRole('button', { name: '保存', exact: true }).click()
+    await expect.poll(() => readFile(target, 'utf8').catch(() => null)).toBe(source)
   } finally { await f.cleanup() }
 })

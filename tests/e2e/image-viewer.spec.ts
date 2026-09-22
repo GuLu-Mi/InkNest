@@ -1,3 +1,4 @@
+import { openDocumentPicker } from './open-document'
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -15,7 +16,7 @@ test('plain click opens the image modal, navigation resets zoom, Escape restores
   try {
     const page = await app.firstWindow({ timeout: 10000 })
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, document)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     const origin = page.locator('.preview img').first()
     await expect.poll(() => origin.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(1)
     await origin.click()
@@ -76,7 +77,7 @@ test('single large image fits, zooms with native scrolling, stays still on drag,
   try {
     const page = await app.firstWindow({ timeout: 10000 })
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, document)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     await test.step('open decoded large fixture in viewer', async () => {
       const previewImage = page.locator('.preview img')
       await expect.poll(() => previewImage.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(1600)
@@ -134,7 +135,7 @@ async function withViewer(run: (context: ViewerTestContext) => Promise<void>, fi
     const page = await app.firstWindow()
     await page.bringToFront()
     await app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, document)
-    await page.getByRole('button', { name: '打开文档', exact: true }).first().click()
+    await openDocumentPicker(page)
     const origin = page.locator('.preview img').first()
     await expect.poll(() => origin.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
     await origin.click()
