@@ -87,13 +87,14 @@ test('first save preserves raw text, undo, selection and preview resources; empt
     const source = '# 新建\n\n![图片](two-by-three.png)\n\n最后一行'
     await type(f.page, source)
     await f.page.getByRole('button', { name: '预览', exact: true }).click()
+    await expect(f.page.locator('.document-save-group')).toHaveCount(0)
     await expect(f.page.getByText(/保存文档后可加载相对路径图片/)).toBeVisible()
     await f.page.getByRole('button', { name: '历史版本', exact: true }).click()
     await expect(f.page.getByText('保存为文件后开始记录历史版本。')).toBeVisible()
     await f.page.getByRole('button', { name: '关闭历史', exact: true }).click()
     await writeFile(join(f.root, 'two-by-three.png'), await readFile('tests/fixtures/images/two-by-three.png'))
     await saveTarget(f.app, join(f.root, '首存'))
-    await f.page.locator('.document-save').click()
+    await f.page.keyboard.press('ControlOrMeta+s')
     await expect(f.page.locator('.document-status')).toContainText('已保存')
     expect(await readFile(join(f.root, '首存.md'), 'utf8')).toBe(source)
     await expect(f.page.locator('.preview img')).toHaveCount(1)
@@ -219,6 +220,46 @@ test('home retains draft undo and named autosave, opens only on choice and prese
   } finally { await f.cleanup() }
 })
 
+test('long document names keep the home button next to the visible tab edge at every window size', async () => {
+  const f = await fixture()
+  try {
+    const path = join(f.root, '很长的文档名称'.repeat(6) + '.md')
+    await writeFile(path, '# Long name')
+    await f.app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
+    await f.page.locator('.welcome-open').click()
+    await expect(f.page.locator('.preview h1')).toHaveText('Long name')
+    for (const [width, zoom] of [[1200, 1], [800, 1], [800, 2]] as const) {
+      await f.app.evaluate(({ BrowserWindow }, { width, zoom }) => { const window = BrowserWindow.getAllWindows()[0]!; window.setSize(width, 800); window.webContents.setZoomFactor(zoom) }, { width, zoom })
+      await expect.poll(() => f.page.evaluate(() => innerWidth)).toBe(width / zoom)
+      await capture(f.app, f.page, `long-tab-${width}-${zoom}.png`)
+      const geometry = await f.page.evaluate(() => {
+        const tab = document.querySelector('.document-tab')!.getBoundingClientRect()
+        const strip = document.querySelector('.document-tabs')!.getBoundingClientRect()
+        const home = document.querySelector('.open-tab')!.getBoundingClientRect()
+        return { gap: home.left - tab.right, tabWidth: tab.width, stripWidth: strip.width, homeRight: home.right, viewport: innerWidth }
+      })
+      await writeFile(test.info().outputPath(`long-tab-${width}-${zoom}.json`), JSON.stringify(geometry, null, 2))
+      expect(geometry.gap).toBeGreaterThanOrEqual(0); expect(geometry.gap).toBeLessThanOrEqual(8)
+      expect(geometry.tabWidth).toBeLessThanOrEqual(geometry.stripWidth + 1)
+      expect(geometry.homeRight).toBeLessThanOrEqual(geometry.viewport)
+      await expect(f.page.locator('.close-tab')).toBeInViewport({ ratio: 1 })
+      await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
+      await expect(f.page.locator('.welcome-create')).toBeFocused()
+      await f.page.getByRole('tab').click()
+    }
+    await f.app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]!; window.webContents.setZoomFactor(1); window.setSize(1200, 800) })
+    await newShortcut(f.app); await newShortcut(f.app)
+    for (const count of [3, 2, 1]) {
+      await expect(f.page.getByRole('tab')).toHaveCount(count)
+      const last = await f.page.locator('.document-tab').last().boundingBox(), home = await f.page.locator('.open-tab').boundingBox()
+      expect(home!.x - last!.x - last!.width).toBeGreaterThanOrEqual(0)
+      expect(home!.x - last!.x - last!.width).toBeLessThanOrEqual(8)
+      if (count > 1) await f.page.getByRole('button', { name: '关闭第 2 个文档', exact: true }).click()
+    }
+    await expect(f.page.locator('.document-save-group')).toHaveCount(0)
+  } finally { await f.cleanup() }
+})
+
 test('overflowing tabs hide both scrollbars and remain reachable by wheel and keyboard in both themes', async () => {
   const f = await fixture()
   try {
@@ -325,7 +366,7 @@ test('document toolbar saves only its document; menu follows selection and late 
   } finally { await f.cleanup() }
 })
 
-for (const kind of ['link', 'encoding'] as const) test(`document toolbar keeps ${kind} source read-only and preserves allowed save-as behavior`, async () => {
+for (const kind of ['link', 'encoding'] as const) test(`reading toolbar hides save for ${kind} source and preserves allowed menu save-as behavior`, async () => {
   const f = await fixture()
   try {
     const path = join(f.root, 'readonly.md')
@@ -334,14 +375,14 @@ for (const kind of ['link', 'encoding'] as const) test(`document toolbar keeps $
     if (kind === 'link') await link(path, join(f.root, 'alias.md'))
     await f.app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
     await f.page.locator('.welcome-open').click()
-    await expect(f.page.locator('.document-save')).toBeDisabled()
-    await f.page.getByRole('button', { name: '当前文档的更多操作', exact: true }).click()
-    const saveAs = f.page.getByRole('button', { name: '另存为…', exact: true })
-    if (kind === 'encoding') await expect(saveAs).toBeDisabled()
-    else {
-      await expect(saveAs).toBeEnabled()
-      const copy = join(f.root, 'copy.md'); await saveTarget(f.app, copy); await saveAs.click()
+    await expect(f.page.locator('.document-save-group')).toHaveCount(0)
+    await expect(f.page.getByRole('button', { name: '编辑', exact: true })).toHaveCount(0)
+    if (kind === 'link') {
+      const copy = join(f.root, 'copy.md'); await saveTarget(f.app, copy)
+      await f.app.evaluate(({ Menu }) => { Menu.getApplicationMenu()!.items.find(item => item.label === '文件')!.submenu!.items.find(item => item.label === '另存为…')!.click() })
       await expect(f.page.locator('.document-name')).toHaveText('copy.md')
+      await expect(f.page.locator('.document-save-group')).toHaveCount(0)
+      await f.page.getByRole('button', { name: '编辑', exact: true }).click()
       await expect(f.page.locator('.document-save')).toBeEnabled()
       expect(await readFile(copy)).toEqual(bytes)
     }

@@ -15,7 +15,7 @@ button:disabled { cursor: default; opacity: .5; }
 .mac-titlebar .tabs-header { padding-left: 88px; }
 .document-tabs { display: flex; min-width: 0; max-width: calc(100% - 46px); overflow-x: auto; overflow-y: hidden; align-self: stretch; gap: 3px; scrollbar-width: none; -webkit-app-region: no-drag; }
 .document-tabs::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.document-tab { display: flex; align-items: center; flex: 0 0 auto; min-width: min(110px, 100%); max-width: min(240px, 100%); border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; }
+.document-tab { display: flex; align-items: center; flex: 0 1 auto; min-width: min(110px, 100%); max-width: 240px; border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; }
 .document-tab.selected { background: var(--surface); border-color: var(--border-subtle); }
 .document-tab > [role='tab'] { display: flex; align-items: center; gap: 5px; min-width: 0; flex: 1; border: 0; border-radius: 5px; background: transparent; text-align: left; }
 .tab-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -35,6 +35,7 @@ button:disabled { cursor: default; opacity: .5; }
 .document-status-bar .document-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .document-notices { flex-shrink: 0; min-height: 0; max-height: min(30vh, 280px); overflow: auto; }
 .document-toolbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: 'outline identity save view'; align-items: center; gap: 14px; width: min(1080px, calc(100% - 48px)); margin-inline: auto; padding: 16px 0; background: var(--surface); }
+.document-toolbar.is-reading { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'outline identity view'; }
 .document-toolbar button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; white-space: nowrap; }
 .document-toolbar > .outline-trigger { grid-area: outline; }
 .document-identity { grid-area: identity; display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--text-secondary); font-size: 14px; }
@@ -75,7 +76,7 @@ button:disabled { cursor: default; opacity: .5; }
 .welcome-card button { min-height: 34px; padding: 6px 18px; }
 .welcome-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .supported-files { color: var(--text-secondary); font-size: 12px; margin: 14px 0 0; }
-@media (max-width: 600px) { .document-toolbar { gap: 6px; } .document-status { font-size: 11px; } .document-tab { max-width: min(180px, 100%); } }
+@media (max-width: 600px) { .document-toolbar { gap: 6px; } .document-status { font-size: 11px; } .document-tab { max-width: 180px; } }
 
 /* Leave room for the status bar and editable body when the window is zoomed. */
 @media (max-height: 400px) { .document-stage { padding-block: 12px; } .document-notices { max-height: 25vh; } }
@@ -147,6 +148,7 @@ dialog::backdrop { background: #0005; }
 .history-sidebar { position: absolute; inset: 0 0 0 auto; width: var(--history-width, 300px); z-index: 3; }
 @container document (max-width: 620px) {
   .document-toolbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'identity save' 'outline view'; gap: 10px; padding-block: 12px; }
+  .document-toolbar.is-reading { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'identity identity' 'outline view'; }
   .document-toolbar > .outline-trigger { justify-self: start; }
   .document-view-actions { justify-self: end; padding: 0; border: 0; }
 }

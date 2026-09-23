@@ -67,7 +67,7 @@ Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能
 
 `SaveReceipt` 包含 requestId、ref、savedRevision、diskToken、savedAt、displayName、displayPath、history。只确认固定快照，不能把新输入标为已保存。历史结果为 recorded/unchanged/failed/skipped，带 generation 与 error；后置历史失败不撤销已确认的正文保存。
 
-文档工具栏保存、另存与关闭复用上述 API，不新增窗口级“全部保存”接口。动作绑定发起时的活动 SessionRef；手动保存在等待 IME 后检查该会话仍被选中且有效，来源变化时不派发保存。下拉关闭显式传原 ref，保存回执只更新对应会话；工具栏名称和底部状态始终由当前活动会话派生。
+文档工具栏保存、另存与关闭复用上述 API，不新增窗口级“全部保存”接口。工具栏整组保存操作仅在编辑时显示，不改变文件菜单、快捷键、标签关闭或失败救援入口的会话权限。动作绑定发起时的活动 SessionRef；手动保存在等待 IME 后检查该会话仍被选中且有效，来源变化时不派发保存。下拉关闭显式传原 ref，保存回执只更新对应会话；工具栏名称和底部状态始终由当前活动会话派生。
 
 `CurrentState` 为 ref + snapshot/null；只读文档必须 null，可编辑文档提供相同 ref 的完整快照。main 在 5 秒关闭挑战内验证身份及内容，renderer 的布尔 dirty 无授权效力。
 

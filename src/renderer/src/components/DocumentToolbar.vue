@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { copy } from '../../../shared/copy'
 import type { Mode, OpenDocument, SessionRef } from '../../../shared/contracts'
 import DocumentIcon from './DocumentIcon.vue'
@@ -11,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{ mode: [value: Mode]; history: []; outline: []; presentation: []; save: []; saveAs: []; close: [ref: SessionRef] }>()
 const group = ref<HTMLElement>(), more = ref<HTMLButtonElement>(), menu = ref<HTMLElement>()
 const menuOpen = ref(false)
+const showSave = computed(() => props.editable && props.mode === 'edit')
 const isMac = /Mac/.test(navigator.platform)
 const saveShortcut = isMac ? '⌘S' : 'Ctrl+S'
 const saveAsShortcut = isMac ? '⌘⇧S' : 'Ctrl+Shift+S'
@@ -35,13 +36,14 @@ function act(action: 'saveAs' | 'close'): void {
 }
 function outside(event: PointerEvent): void { if (!group.value?.contains(event.target as Node)) closeMenu() }
 function leave(event: FocusEvent): void { if (!group.value?.contains(event.relatedTarget as Node | null)) closeMenu() }
-watch([() => props.document.docId, () => props.document.epoch, () => props.disabled, () => props.saving, () => props.closeDisabled], () => closeMenu())
+watch([() => props.document.docId, () => props.document.epoch, () => props.disabled, () => props.saving, () => props.closeDisabled, showSave], () => closeMenu())
 onMounted(() => window.document.addEventListener('pointerdown', outside))
 onBeforeUnmount(() => window.document.removeEventListener('pointerdown', outside))
 </script>
 <template>
   <div
     class="document-toolbar"
+    :class="{ 'is-reading': !showSave }"
     role="group"
     :aria-label="copy.documentActions(document.displayName)"
   >
@@ -61,6 +63,7 @@ onBeforeUnmount(() => window.document.removeEventListener('pointerdown', outside
       <DocumentIcon name="file" /><span class="document-name">{{ document.displayName }}</span>
     </div>
     <div
+      v-if="showSave"
       ref="group"
       class="document-save-group"
       @focusout="leave"
