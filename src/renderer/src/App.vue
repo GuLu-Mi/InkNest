@@ -13,6 +13,7 @@ import DocumentOutline from './components/DocumentOutline.vue'
 import { useOutline } from './documents/use-outline'
 import { copy, readOnlyCopy } from '../../shared/copy'
 import DocumentToolbar from './components/DocumentToolbar.vue'
+import DocumentIcon from './components/DocumentIcon.vue'
 import WelcomePage from './components/WelcomePage.vue'
 import { useWorkspace } from './documents/use-workspace'
 import EditorPane from './editor/EditorPane.vue'
@@ -105,7 +106,7 @@ watch([linkedAnchor, parsed, document, mode], async () => {
 watch(sourceKey, () => { linkNotice.value = null })
 const recoveryCount = ref(0); const recoveryDismissed = ref(false); const backupError = ref('')
 watch(() => !document.value, welcome => { if (welcome) { recoveryCount.value = 0; recoveryDismissed.value = false } }, { flush: 'sync' })
-async function exitHistory(close = false): Promise<void> { if (close) history.close(); else history.exit(); await nextTick(); window.document.querySelector<HTMLButtonElement>('.document-toolbar button:last-child')?.focus() }
+async function exitHistory(close = false): Promise<void> { if (close) history.close(); else history.exit(); await nextTick(); window.document.querySelector<HTMLButtonElement>('.history-trigger')?.focus() }
 async function surfaceSaveAs(): Promise<void> { if (!await history.exportSelected()) await saveAs() }
 const historyReason = computed(() => historical.value && !historical.value.available ? copy.historyMerged : restoreBlocked.value ? copy.historyRestoreBlocked : historical.value?.snapshot && !historical.value.snapshot.restorable ? copy.historyNotRestorable : '')
 const status = computed(() => {
@@ -115,6 +116,14 @@ const status = computed(() => {
   const primary = state?.saving ? copy.saving : (state?.diskStatus !== 'current' || state?.saveFailure) ? copy.saveFailed : !document.value?.displayPath ? copy.unsavedFile : dirty.value ? copy.pending : copy.saved
   return [primary, state?.recoveryPending ? copy.recoveryPending : '', state?.recoveryStatus === 'backed-up' ? copy.recoveryBackedUp : state?.recoveryStatus === 'pending' ? copy.recoveryWaiting : state?.recoveryStatus === 'error' ? copy.recoveryError : '', frozen.value ? copy.processing : '', state?.notice].filter(Boolean).join(' · ')
 })
+const statusIcon = computed(() => {
+  void signal.value
+  if (document.value?.readOnlyReason) return 'file'
+  if (tab.value?.saving) return 'saving'
+  if (tab.value?.saveFailure || (tab.value && tab.value.diskStatus !== 'current')) return 'error'
+  return !document.value?.displayPath || dirty.value ? 'pending' : 'saved'
+})
+const documentActionsDisabled = computed(() => editingFrozen.value || busy.value || presentationPending.value || historyWorking.value || backupsOpen.value)
 const hasNotices = computed(() => { void signal.value; return !!historyRestorePending.value || !!backupError.value || (recoveryCount.value > 0 && !recoveryDismissed.value) || !!tab.value?.historyAttention || !!tab.value?.historyMaintenance || !!tab.value?.recoveryError || !!error.value || (!!tab.value && tab.value.diskStatus !== 'current') })
 const isMac = /Mac/.test(navigator.platform)
 async function activateTab(ref: SessionRef, keyboard = false): Promise<void> {
@@ -127,7 +136,7 @@ async function activateTab(ref: SessionRef, keyboard = false): Promise<void> {
 async function openHome(): Promise<void> {
   if (!await ws.showHome()) return
   await nextTick()
-  window.document.querySelector<HTMLButtonElement>('.welcome-open')?.focus()
+  window.document.querySelector<HTMLButtonElement>('.welcome-create')?.focus()
 }
 watchEffect(() => { window.document.title = document.value ? `${dirty.value ? '* ' : ''}${document.value.displayName} · InkNest` : 'InkNest' })
 watch(presenting, async (value, before) => { if (before && !value) { await nextTick(); window.document.querySelector<HTMLButtonElement>('.presentation-trigger')?.focus() } })
@@ -164,22 +173,6 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
           @close="closeDocument"
           @home="openHome"
         >
-          <button
-            v-if="document"
-            type="button"
-            class="quick-save"
-            :aria-label="copy.save"
-            :title="`${copy.save}（${isMac ? '⌘S' : 'Ctrl+S'}）`"
-            :disabled="!session || editingFrozen || busy || presentationPending || historyWorking || !!historical"
-            @click="save"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M5 3h12l4 4v14H3V3h2Zm2 0v6h10V3M7 21v-8h10v8M14 4v3" />
-            </svg>
-          </button>
           <button
             v-if="!document && recoveryCount > 0"
             class="welcome-recovery"
@@ -362,9 +355,14 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
             />
             <DocumentToolbar
               v-else
+              :document="document"
               :mode="mode"
               :editable="!!session"
               :disabled="editingFrozen || presentationPending"
+              :save-disabled="!session || documentActionsDisabled || !!tab?.saving"
+              :save-as-disabled="!canSaveAs || documentActionsDisabled || !!tab?.saving"
+              :close-disabled="documentActionsDisabled"
+              :saving="!!tab?.saving"
               :presentation-disabled="!presentationAllowed"
               :history-open="historyOpen"
               :outline-open="outlineVisible"
@@ -372,6 +370,9 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
               @outline="outline.toggleOpen"
               @mode="setMode"
               @history="historyOpen ? exitHistory(true) : historyOpen = true"
+              @save="save"
+              @save-as="saveAs"
+              @close="closeDocument"
             />
             <SearchBar
               v-if="search.visible.value"
@@ -492,7 +493,9 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', preventUnload
       <footer
         v-if="document && !historical"
         class="document-status-bar"
+        :class="{ 'is-error': statusIcon === 'error' }"
       >
+        <DocumentIcon :name="statusIcon" />
         <p
           class="document-status"
           role="status"

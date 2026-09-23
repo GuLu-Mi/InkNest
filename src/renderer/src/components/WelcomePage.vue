@@ -18,22 +18,24 @@ defineEmits<{ open: []; create: [] }>()
       <p class="intro">
         {{ copy.welcomeIntro }}
       </p>
-      <button
-        type="button"
-        class="welcome-open"
-        :disabled="busy || disabled"
-        @click="$emit('open')"
-      >
-        {{ busy ? copy.opening : copy.openDocument }}
-      </button>
-      <button
-        type="button"
-        class="welcome-create"
-        :disabled="busy || disabled"
-        @click="$emit('create')"
-      >
-        {{ copy.newDocument }}
-      </button>
+      <div class="welcome-actions">
+        <button
+          type="button"
+          class="welcome-create"
+          :disabled="busy || disabled"
+          @click="$emit('create')"
+        >
+          {{ copy.newDocument }}
+        </button>
+        <button
+          type="button"
+          class="welcome-open"
+          :disabled="busy || disabled"
+          @click="$emit('open')"
+        >
+          {{ busy ? copy.opening : copy.openDocument }}
+        </button>
+      </div>
       <p class="supported-files">
         {{ copy.supportedFiles }}
       </p>

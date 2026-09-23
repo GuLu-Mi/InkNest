@@ -164,6 +164,7 @@ export function useWorkspace(editor: Ref<ActiveEditor | undefined>, surface: { c
   async function save(): Promise<void> {
     const origin = tab.value
     if (!origin?.session || frozen.value || !await settle() || origin.frozen) return
+    if (tab.value !== origin || workspace.getTab(origin.document) !== origin) return
     if (!origin.document.displayPath || pendingSaveAs.has(origin)) return saveAs()
     await saveScheduler.flush(origin.document, 'manual')
   }

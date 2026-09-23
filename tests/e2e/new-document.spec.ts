@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { link, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
@@ -49,6 +49,10 @@ async function capture(app: ElectronApplication, page: Page, name: string) {
 test('home choices, menu and native shortcut create one empty editing tab per action; numbering and tab limit', async () => {
   const f = await fixture()
   try {
+    await expect(f.page.locator('.welcome-actions button')).toHaveText(['新建文档', '打开文档'])
+    const create = await f.page.locator('.welcome-create').boundingBox(), open = await f.page.locator('.welcome-open').boundingBox()
+    expect(create!.x + create!.width).toBeLessThan(open!.x)
+    await capture(f.app, f.page, 'welcome-new-first.png')
     await f.page.locator('.welcome-create').click()
     await expect(f.page.getByRole('textbox')).toBeFocused()
     await expect(f.page.locator('.document-status')).toHaveText('尚未保存到文件')
@@ -89,7 +93,7 @@ test('first save preserves raw text, undo, selection and preview resources; empt
     await f.page.getByRole('button', { name: '关闭历史', exact: true }).click()
     await writeFile(join(f.root, 'two-by-three.png'), await readFile('tests/fixtures/images/two-by-three.png'))
     await saveTarget(f.app, join(f.root, '首存'))
-    await f.page.getByRole('button', { name: '保存', exact: true }).click()
+    await f.page.locator('.document-save').click()
     await expect(f.page.locator('.document-status')).toContainText('已保存')
     expect(await readFile(join(f.root, '首存.md'), 'utf8')).toBe(source)
     await expect(f.page.locator('.preview img')).toHaveCount(1)
@@ -182,11 +186,11 @@ test('home retains draft undo and named autosave, opens only on choice and prese
       dialog.showOpenDialog = async () => { Reflect.set(globalThis, 'homeOpenCount', Reflect.get(globalThis, 'homeOpenCount') + 1); return { canceled: true, filePaths: [] } }
     })
     await f.page.locator('.welcome-create').click(); await type(f.page, '# 保留草稿')
-    await f.page.getByRole('button', { name: '保存', exact: true }).click()
+    await f.page.locator('.document-save').click()
     await expect(f.page.getByRole('textbox')).toBeFocused()
     await expect(f.page.locator('.document-toolbar .document-status, .initial-save, .open-document')).toHaveCount(0)
     await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
-    await expect(f.page.locator('.welcome-open')).toBeFocused()
+    await expect(f.page.locator('.welcome-create')).toBeFocused()
     await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
     await expect(f.page.getByRole('tab')).toHaveCount(1)
     await expect(f.page.getByRole('tab', { selected: true })).toHaveCount(0)
@@ -202,7 +206,7 @@ test('home retains draft undo and named autosave, opens only on choice and prese
     await expect(f.page.getByRole('textbox')).toHaveText('')
     await f.page.keyboard.press('ControlOrMeta+Shift+z')
     const path = join(f.root, 'saved.md'); await saveTarget(f.app, path)
-    await f.page.getByRole('button', { name: '保存', exact: true }).click()
+    await f.page.locator('.document-save').click()
     await expect(f.page.locator('.document-status-bar')).toContainText('已保存')
     await type(f.page, '# 在首页继续自动保存')
     await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
@@ -246,6 +250,102 @@ test('overflowing tabs hide both scrollbars and remain reachable by wheel and ke
       await capture(f.app, f.page, 'home-' + theme + '.png')
       await f.page.getByRole('tab').last().click()
     }
+  } finally { await f.cleanup() }
+})
+
+test('document toolbar saves only its document; menu follows selection and late save does not alter another status', async () => {
+  const f = await fixture()
+  try {
+    await f.page.locator('.welcome-create').click(); await type(f.page, '# 草稿 A')
+    await newShortcut(f.app); await type(f.page, '# 草稿 B')
+    await f.page.getByRole('tab', { name: /未命名-1/ }).click()
+    const a = join(f.root, 'A.md'), b = join(f.root, 'B.md')
+    await saveTarget(f.app, a)
+    await expect(f.page.locator('.document-save')).toHaveAttribute('aria-label', '保存当前文档：未命名-1')
+    await expect(f.page.locator('.tabs-header .document-save, .quick-save')).toHaveCount(0)
+    await f.page.locator('.document-save').click()
+    await expect(f.page.locator('.document-name')).toHaveText('A.md')
+    expect(await readFile(a, 'utf8')).toBe('# 草稿 A')
+    await expect(f.page.getByRole('tab', { name: /未命名-2/ }).locator('.tab-dot')).toBeVisible()
+
+    const more = f.page.getByRole('button', { name: '当前文档的更多操作', exact: true })
+    await more.focus(); await f.page.keyboard.press('ArrowDown')
+    await expect(f.page.getByRole('button', { name: '另存为…', exact: true })).toBeFocused()
+    await f.page.keyboard.press('ArrowDown')
+    await expect(f.page.getByRole('button', { name: '关闭当前文档', exact: true })).toBeFocused()
+    await f.page.keyboard.press('Escape'); await expect(more).toBeFocused()
+    await expect(f.page.locator('.document-save-menu')).toHaveCount(0)
+    await more.click(); await capture(f.app, f.page, 'document-save-menu.png')
+    await f.page.getByRole('tab', { name: /未命名-2/ }).click()
+    await expect(f.page.locator('.document-save-menu')).toHaveCount(0)
+    await expect(f.page.locator('.document-name')).toHaveText('未命名-2')
+    await expect(f.page.locator('.document-status')).toContainText('尚未保存到文件')
+    await f.app.evaluate(({ dialog }) => { dialog.showSaveDialog = async () => ({ canceled: true }) })
+    await more.click(); await f.page.getByRole('button', { name: '另存为…', exact: true }).click()
+    await expect(f.page.getByRole('textbox')).toBeFocused()
+    await expect(f.page.getByRole('textbox')).toHaveText('# 草稿 B')
+    await more.click(); await f.page.getByRole('button', { name: '关闭当前文档', exact: true }).click()
+    await expect.poll(() => f.app.evaluate(() => Reflect.get(globalThis, 'newDialogs').length)).toBe(1)
+    expect(await f.app.evaluate(() => Reflect.get(globalThis, 'newDialogs')[0].message)).toContain('未命名-2')
+    await expect(f.page.getByRole('tab')).toHaveCount(2)
+    await expect(f.page.getByRole('textbox')).toHaveAttribute('contenteditable', 'true')
+    await saveTarget(f.app, b)
+    await more.click(); await f.page.getByRole('button', { name: '另存为…', exact: true }).click()
+    await expect(f.page.locator('.document-name')).toHaveText('B.md')
+    expect(await readFile(b, 'utf8')).toBe('# 草稿 B')
+    expect(await readFile(a, 'utf8')).toBe('# 草稿 A')
+
+    await f.page.getByRole('tab', { name: 'A.md', exact: true }).click()
+    await f.app.evaluate(({ ipcMain }) => {
+      const save = Reflect.get(ipcMain, '_invokeHandlers').get('document:save')
+      ipcMain.removeHandler('document:save')
+      ipcMain.handle('document:save', async (event, request) => {
+        const result = await save(event, request)
+        return new Promise(resolve => Reflect.set(globalThis, 'releaseToolbarSave', () => resolve(result)))
+      })
+    })
+    await type(f.page, '# A 的新内容'); await f.page.locator('.document-save').click()
+    await expect.poll(() => readFile(a, 'utf8')).toBe('# A 的新内容')
+    await expect(f.page.locator('.document-save')).toBeDisabled()
+    await expect(f.page.locator('.document-status')).toContainText('保存中')
+    await f.page.getByRole('tab', { name: 'B.md', exact: true }).click()
+    await expect(f.page.locator('.document-save')).toHaveAttribute('aria-label', '保存当前文档：B.md')
+    await expect(f.page.locator('.document-save')).toBeEnabled()
+    await expect(f.page.locator('.document-status')).toHaveText('已保存')
+    await more.click()
+    await expect(f.page.locator('.document-save-menu')).toBeVisible()
+    await f.app.evaluate(() => Reflect.get(globalThis, 'releaseToolbarSave')())
+    await expect(f.page.getByRole('tab', { name: 'A.md', exact: true }).locator('.tab-dot')).toHaveCount(0)
+    await expect(f.page.locator('.document-name')).toHaveText('B.md')
+    await expect(f.page.locator('.document-save-menu')).toBeVisible()
+    expect(await readFile(b, 'utf8')).toBe('# 草稿 B')
+    await f.page.getByRole('tab', { name: 'A.md', exact: true }).click()
+    await expect(f.page.locator('.document-save')).toBeEnabled()
+    await expect(f.page.getByRole('textbox')).toHaveText('# A 的新内容')
+  } finally { await f.cleanup() }
+})
+
+for (const kind of ['link', 'encoding'] as const) test(`document toolbar keeps ${kind} source read-only and preserves allowed save-as behavior`, async () => {
+  const f = await fixture()
+  try {
+    const path = join(f.root, 'readonly.md')
+    const bytes = kind === 'link' ? Buffer.from('# 原文件') : Buffer.from([0xff, 0xfe, 0x41, 0])
+    await writeFile(path, bytes)
+    if (kind === 'link') await link(path, join(f.root, 'alias.md'))
+    await f.app.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }) }, path)
+    await f.page.locator('.welcome-open').click()
+    await expect(f.page.locator('.document-save')).toBeDisabled()
+    await f.page.getByRole('button', { name: '当前文档的更多操作', exact: true }).click()
+    const saveAs = f.page.getByRole('button', { name: '另存为…', exact: true })
+    if (kind === 'encoding') await expect(saveAs).toBeDisabled()
+    else {
+      await expect(saveAs).toBeEnabled()
+      const copy = join(f.root, 'copy.md'); await saveTarget(f.app, copy); await saveAs.click()
+      await expect(f.page.locator('.document-name')).toHaveText('copy.md')
+      await expect(f.page.locator('.document-save')).toBeEnabled()
+      expect(await readFile(copy)).toEqual(bytes)
+    }
+    expect(await readFile(path)).toEqual(bytes)
   } finally { await f.cleanup() }
 })
 
@@ -295,7 +395,7 @@ test('strict create IPC, two themes and 200 percent narrow layout keep controls 
       await f.page.getByRole('radio', { name: theme === 'light' ? '浅色主题' : '深色主题' }).click()
       await expect(f.page.locator('html')).toHaveAttribute('data-theme', theme)
       await expect(f.page.locator('html')).not.toHaveClass(/theme-transition/)
-      for (const selector of ['.open-tab', '.quick-save', '.document-status-bar', '.presentation-trigger']) {
+      for (const selector of ['.open-tab', '.document-save', '.document-save-more', '.document-identity', '.document-status-bar', '.presentation-trigger']) {
         const rect = await f.page.locator(selector).boundingBox(); const size = await f.page.evaluate(() => ({ width: innerWidth, height: innerHeight }))
         expect(rect).not.toBeNull(); expect(rect!.x).toBeGreaterThanOrEqual(0); expect(rect!.x + rect!.width).toBeLessThanOrEqual(size.width + 1)
         expect(rect!.y + rect!.height).toBeLessThanOrEqual(size.height)
@@ -322,13 +422,13 @@ test('home waits for unfinished composition and returns focus without dropping t
     await expect(f.page.getByRole('tab')).toHaveCount(1)
     await editor.dispatchEvent('compositionend', { data: '拼' })
     await f.page.getByRole('button', { name: '返回首页', exact: true }).click()
-    await expect(f.page.locator('.welcome-open')).toBeFocused()
+    await expect(f.page.locator('.welcome-create')).toBeFocused()
     await f.page.getByRole('tab').click()
     await expect(editor).toBeVisible()
     await expect(f.page.getByRole('alert')).toHaveCount(0)
     await expect.poll(() => f.page.locator('.cm-scroller').evaluate(el => el.scrollTop)).toBe(400)
     const target = join(f.root, 'composition.md'); await saveTarget(f.app, target)
-    await f.page.getByRole('button', { name: '保存', exact: true }).click()
+    await f.page.locator('.document-save').click()
     await expect.poll(() => readFile(target, 'utf8').catch(() => null)).toBe(source)
   } finally { await f.cleanup() }
 })

@@ -25,14 +25,29 @@ button:disabled { cursor: default; opacity: .5; }
 .document-tab button:hover { background: var(--surface-hover); }
 .open-tab { align-self: center; flex-shrink: 0; width: 30px; height: 30px; padding: 0; margin-bottom: 7px; font-size: 21px; border-color: transparent; background: transparent; }
 .titlebar-space { flex: 1; min-width: 20px; align-self: stretch; }
-.quick-save { flex-shrink: 0; width: 30px; height: 30px; padding: 5px; margin-bottom: 7px; border-color: transparent; background: transparent; }
-.quick-save svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.document-status-bar { flex-shrink: 0; min-width: 0; padding: 4px 16px; border-top: 1px solid var(--border-subtle); background: var(--surface-muted); }
+.document-icon { display: block; flex-shrink: 0; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.document-icon.is-saving { animation: document-saving 1s linear infinite; }
+@keyframes document-saving { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .document-icon.is-saving { animation: none; } }
+.document-status-bar { display: flex; align-items: center; gap: 7px; flex-shrink: 0; min-width: 0; min-height: 31px; padding: 5px 24px; color: var(--text-secondary); border-top: 1px solid var(--border-subtle); background: var(--surface-muted); }
+.document-status-bar > .document-icon { width: 13px; height: 13px; }
+.document-status-bar.is-error, .document-status-bar.is-error .document-status { color: var(--error-text); }
 .document-status-bar .document-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .document-notices { flex-shrink: 0; min-height: 0; max-height: min(30vh, 280px); overflow: auto; }
-.document-toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: flex-end; gap: 10px; width: min(1080px, calc(100% - 48px)); margin-inline: auto; padding: 10px 0; min-height: 48px; background: var(--surface); z-index: 2; }
+.document-toolbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: 'outline identity save view'; align-items: center; gap: 14px; width: min(1080px, calc(100% - 48px)); margin-inline: auto; padding: 16px 0; background: var(--surface); }
+.document-toolbar button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; white-space: nowrap; }
+.document-toolbar > .outline-trigger { grid-area: outline; }
+.document-identity { grid-area: identity; display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--text-secondary); font-size: 14px; }
+.document-name { color: var(--text-primary); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.document-save-group { grid-area: save; display: flex; position: relative; }
+.document-save { min-width: 80px; border-radius: 6px 0 0 6px; }
+.document-save-more { width: 25px; padding: 4px; border-left: 0; border-radius: 0 6px 6px 0; }
+.document-save-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; display: grid; min-width: 208px; padding: 5px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px #0002; }
+.document-save-menu button { justify-content: space-between; gap: 16px; border: 0; text-align: left; }
+.document-save-menu kbd { color: var(--text-secondary); font: inherit; font-size: 12px; }
+.document-view-actions { grid-area: view; display: flex; align-items: center; gap: 7px; padding-left: 14px; border-left: 1px solid var(--border-subtle); }
+.document-view-actions .presentation-trigger, .document-view-actions .history-trigger { width: 32px; padding: 5px; }
 .document-status { margin: 0; min-width: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-.document-toolbar > button, .document-toolbar > details { flex-shrink: 0; }
 .action-menu { position: relative; flex-shrink: 0; }
 .action-menu summary { list-style: none; cursor: pointer; width: 28px; height: 28px; border-radius: 5px; font-size: 20px; line-height: 20px; text-align: center; }
 .action-menu summary::-webkit-details-marker { display: none; }
@@ -58,13 +73,14 @@ button:disabled { cursor: default; opacity: .5; }
 .welcome-card h1 { margin: 0; font-size: 30px; font-weight: 600; line-height: 1.4; }
 .welcome-card .intro { color: var(--text-secondary); font-size: 16px; line-height: 1.75; margin: 16px 0 28px; }
 .welcome-card button { min-height: 34px; padding: 6px 18px; }
+.welcome-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .supported-files { color: var(--text-secondary); font-size: 12px; margin: 14px 0 0; }
 @media (max-width: 600px) { .document-toolbar { gap: 6px; } .document-status { font-size: 11px; } .document-tab { max-width: min(180px, 100%); } }
 
 /* Leave room for the status bar and editable body when the window is zoomed. */
 @media (max-height: 400px) { .document-stage { padding-block: 12px; } .document-notices { max-height: 25vh; } }
 .document-workspace { position: relative; flex: 1; display: flex; min-height: 0; min-width: 0; }
-.document-center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.document-center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; container: document / inline-size; }
 .document-outline { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; min-height: 0; padding: 16px 12px; border: 0; border-right: 1px solid var(--border-subtle); background: var(--surface-muted); color: var(--text-primary); font-size: 13px; }
 .outline-list { overflow: auto; min-height: 0; flex: 1; margin-top: 12px; }
 .outline-list ul { list-style: none; margin: 0; padding: 0; }
@@ -73,7 +89,6 @@ button:disabled { cursor: default; opacity: .5; }
 .outline-title[aria-current] { color: var(--text-primary); background: var(--surface-hover); font-weight: 600; }
 .outline-fold, .outline-fold-space { flex: 0 0 24px; width: 24px; }
 .outline-fold { border: 0; padding: 4px 0; background: transparent; }
-.document-toolbar > .outline-trigger { margin-right: auto; }
 .history-sidebar { width: 300px; flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0; padding: 16px; border: 0; border-left: 1px solid var(--border-subtle); background: var(--surface-muted); color: var(--text-primary); font-size: 13px; }
 .sidebar-heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-shrink: 0; }
 .sidebar-heading button { font-size: 20px; min-width: 30px; padding-inline: 6px; }
@@ -130,7 +145,11 @@ dialog::backdrop { background: #0005; }
 .document-center .cm-scroller { padding-left: var(--body-left); padding-right: var(--body-right); }
 .document-outline { position: absolute; inset: 0 auto 0 0; width: var(--outline-width, 280px); z-index: 3; }
 .history-sidebar { position: absolute; inset: 0 0 0 auto; width: var(--history-width, 300px); z-index: 3; }
-.panels-sharing-space .document-toolbar { flex-wrap: wrap; }
+@container document (max-width: 620px) {
+  .document-toolbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'identity save' 'outline view'; gap: 10px; padding-block: 12px; }
+  .document-toolbar > .outline-trigger { justify-self: start; }
+  .document-view-actions { justify-self: end; padding: 0; border: 0; }
+}
 @media (max-width: 600px) {
   .document-outline, .history-sidebar { padding: 10px 6px; }
   .sidebar-heading { gap: 2px; flex-wrap: wrap; }
@@ -193,9 +212,17 @@ dialog::backdrop { background: #0005; }
 
 /* Historical controls keep their existing bounded scrolling area. */
 .document-toolbar-row { position: relative; flex-shrink: 0; min-width: 0; }
+.document-toolbar-row:not(.is-history) { border-bottom: 1px solid var(--border-subtle); }
 .document-toolbar-row.is-history { display: flex; flex-direction: column; max-height: 35%; }
 .document-toolbar-row > .history-preview-bar { min-height: 0; max-height: none; flex-shrink: 1; }
 .document-toolbar-row > .search-bar { top: 0; }
 @media (max-width: 600px) { .search-bar { padding-inline: 16px; } }
 
-.welcome-create { margin-left: 12px; }
+@media (max-height: 400px) {
+  .document-toolbar { padding-block: 3px; gap: 4px; }
+  .document-toolbar button { min-height: 28px; }
+  .document-status-bar { min-height: 24px; padding-block: 3px; }
+  .document-notices { max-height: 20vh; }
+  .error-banner { padding-block: 4px; gap: 4px 8px; line-height: 1.5; }
+  .error-banner > span { flex-basis: 100%; }
+}

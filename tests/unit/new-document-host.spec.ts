@@ -132,6 +132,22 @@ test('manual first save preserves EditorState and undo, while preview never invo
   expect(session.snapshot().text).toBe(''); expect(session.dirty).toBe(true)
 })
 
+test.each(['activation', 'home'] as const)('a first save waiting for composition does not retarget after %s', async change => {
+  const f = fixture(); await f.ws.createDocument()
+  const source = f.ws.session.value!
+  source.dispatch({ changes: { from: 0, insert: 'only source' } })
+  let finish!: (value: boolean) => void
+  f.editor.value.settleComposition = vi.fn(() => new Promise(resolve => { finish = resolve }))
+  const saving = f.ws.save()
+  expect(f.editor.value.settleComposition).toHaveBeenCalledTimes(1)
+  if (change === 'activation') f.ws.workspace.install({ ...document, docId: 'other', epoch: 'other', displayName: '未命名-2' })
+  else f.ws.workspace.showHome()
+  finish(true); await saving
+  expect(f.saveAs).not.toHaveBeenCalled(); expect(f.save).not.toHaveBeenCalled()
+  expect(source.snapshot().text).toBe('only source'); expect(source.document.displayPath).toBeNull()
+  expect(f.ws.workspace.active?.docId ?? null).toBe(change === 'activation' ? 'other' : null)
+})
+
 test('lost first-save receipt freezes source and retries identical request without a new snapshot', async () => {
   const f = fixture(); await f.ws.createDocument()
   const session = f.ws.session.value!

@@ -3,6 +3,8 @@ import type { ErrorCode, ReadOnlyReason, ResourceBlockedReason } from './contrac
 /** Product language shared by native dialogs and the document workspace. */
 export const copy = {
   home: '返回首页', save: '保存',
+  saveCurrent: (name: string) => `保存当前文档：${name}`,
+  documentActions: (name: string) => `当前文档操作：${name}`, moreDocumentActions: '当前文档的更多操作',
   newDocument: '新建文档', newFailed: '新建失败，已有文档已保留。',
   initialSave: '保存…', initialSaveTitle: '保存 Markdown 文档', initialSaveRequired: '请先保存文档并选择文件位置。',
   unsavedFile: '尚未保存到文件', untitledHistory: '保存为文件后开始记录历史版本。',
