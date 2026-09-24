@@ -3,6 +3,7 @@ import { copy, resourceCopy } from '../../../shared/copy'
 import type { InkNestAPI, SessionRef, ResourceReference, ResolvedResource } from '../../../shared/contracts'
 import { parseDocument, type ParsedDocument, type PreviewImage } from './document-model'
 import { sanitizePreview } from './sanitize'
+import { decorateAlerts } from './alert-icons'
 
 export async function buildPreview(source: string | ParsedDocument, ref: SessionRef | null, api: InkNestAPI): Promise<ParsedDocument> {
   const parsed = typeof source === 'string' ? parseDocument(source) : source
@@ -96,5 +97,6 @@ export async function buildPreview(source: string | ParsedDocument, ref: Session
   }
   for (const code of template.content.querySelectorAll('td code')) if ((code.textContent?.length ?? 0) > 64) code.className = 'long-token'
   for (const code of template.content.querySelectorAll('pre')) code.tabIndex = 0
+  decorateAlerts(template.content)
   return { html: template.innerHTML, headings: parsed.headings, anchors: parsed.anchors ?? [], links, images: gallery }
 }

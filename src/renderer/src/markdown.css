@@ -18,7 +18,7 @@
 .markdown-body code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .875em; background: var(--surface-muted); border-radius: 3px; padding: 2px 5px; }
 .markdown-body :not(pre) > code { overflow-wrap: anywhere; }
 .markdown-body pre { max-width: 100%; overflow-x: auto; padding: 16px 20px; margin: 20px 0; border: 1px solid var(--border-subtle); border-radius: 5px; background: var(--surface-muted); line-height: 1.65; }
-.markdown-body pre code { padding: 0; background: transparent; white-space: pre; overflow-wrap: normal; }
+.markdown-body pre code { padding: 0; background: transparent; white-space: pre-wrap; overflow-wrap: anywhere; }
 .markdown-body .table-scroll { max-width: 100%; overflow-x: auto; margin: 20px 0 24px; }
 .markdown-body table { border-collapse: collapse; min-width: 100%; overflow-wrap: normal; }
 .markdown-body th, .markdown-body td { padding: 10px 14px; border: 1px solid var(--border-subtle); text-align: left; vertical-align: top; word-break: normal; }
@@ -44,11 +44,21 @@
 .markdown-body details { margin: 18px 0; padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: 5px; }
 .markdown-body summary { cursor: pointer; font-weight: 500; }
 .markdown-body details[open] > summary { margin-bottom: 12px; }
-.markdown-body .markdown-alert { border-left-color: var(--accent); background: var(--surface-muted); border-radius: 3px; padding: 12px 18px; }
-.markdown-body .markdown-alert-warning, .markdown-body .markdown-alert-caution { border-left-color: light-dark(#946400, #e8b758); }
-.markdown-body .alert-title { color: var(--text-primary); font-weight: 600; margin: 0 0 8px; }
-.markdown-body .code-block { margin: 20px 0; border: 1px solid var(--border-subtle); border-radius: 5px; overflow: hidden; }
-.markdown-body .code-block pre { border: 0; border-radius: 0; margin: 0; }
+.markdown-body .markdown-alert { --alert-color: light-dark(#0969da, #79c0ff); color: var(--text-primary); border-left: 4px solid var(--alert-color); padding: 4px 16px; }
+.markdown-body .markdown-alert-tip { --alert-color: light-dark(#1a7f37, #7ee787); }
+.markdown-body .markdown-alert-important { --alert-color: light-dark(#8250df, #d2a8ff); }
+.markdown-body .markdown-alert-warning { --alert-color: light-dark(#9a6700, #e3b341); }
+.markdown-body .markdown-alert-caution { --alert-color: light-dark(#cf222e, #ff7b72); }
+.markdown-body .alert-title { display: flex; align-items: center; gap: 8px; color: var(--alert-color); font-size: 1.05em; font-weight: 650; margin: 0 0 6px; }
+.markdown-body .alert-icon { width: 1.2em; height: 1.2em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.markdown-body .code-block { --code-preview-height: 320px; margin: 20px 0; border: 1px solid var(--border-subtle); border-radius: 5px; overflow: clip; }
+.markdown-body .code-block pre { border: 0; border-radius: 0; margin: 0; overflow: visible; }
+.markdown-body .code-content { overflow: hidden; }
+.markdown-body .code-collapsed .code-content { max-height: var(--code-preview-height); }
+.markdown-body .code-footer { display: flex; justify-content: flex-end; padding: 6px 12px; background: var(--surface-muted); border-top: 1px solid var(--border-subtle); }
+.markdown-body .code-expanded > .code-footer { position: sticky; bottom: calc(-1 * var(--stage-bottom-space, 0px)); }
+.markdown-body .code-footer[hidden] { display: none; }
+.markdown-body .code-footer button { min-height: 28px; padding: 3px 8px; font: 12px/1.5 system-ui, sans-serif; }
 .markdown-body .code-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; background: var(--surface-muted); border-bottom: 1px solid var(--border-subtle); font: 12px/1.5 ui-monospace, monospace; }
 .markdown-body .code-toolbar > span { margin-right: auto; color: var(--text-secondary); }
 .markdown-body .code-toolbar button { min-height: 28px; padding: 3px 8px; font: 12px/1.5 system-ui, sans-serif; }

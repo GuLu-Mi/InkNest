@@ -62,6 +62,8 @@ main 启动即注册 open-file、单实例锁和 argv；`SystemOpenQueue` 合批
 
 `rich-content.ts` 在净化且挂载的 DOM 上按需绘制代码、公式与图表。KaTeX 生成再净化的 MathML，Mermaid 严格模式生成再净化的 SVG；样式限定在当前图表，使用窗口 nonce。Mermaid 流程图使用应用定义的 base 主题变量；净化后的流程图仅装饰普通矩形圆角、连线标签背景及普通箭头，保留文字、图型语义及 Markdown 源码，不扩大 SVG/样式白名单。图表全局队列串行，AbortSignal 和预览代数共同拒绝旧来源结果，卸载移除测量容器；无正文级永久缓存。这些库生成的显示结果不进入保存路径，容量与降级见 [Markdown 兼容性](markdown.md)。
 
+思维导图使用独立的 base 主题变量，在同一离屏容器测量净化后的节点与文字边界并校正居中，不放宽样式权限。提示块图标来自应用固定路径，在正文净化完成后添加。`code-folding.ts` 观察未裁切代码的自然高度，在外层限制预览高度；观察器绑定当前增强任务的 AbortSignal，切换来源或主题时释放。阅读搜索保留代码完整文本，定位裁切区域时先展开，再计算滚动位置。
+
 ## 搜索、历史与演示展示
 
 搜索由 `use-document-search.ts` 按来源维护查询和取消代数。阅读适配对净化后的正文 Text 节点建立索引，CSS Custom Highlight 不改正文 DOM；编辑适配读取原 EditorState，使用可见范围 Decoration。匹配坐标存紧凑数组，扫描分段让出事件循环；完整计数不靠截断结果完成。

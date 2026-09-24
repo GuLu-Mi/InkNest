@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-test('reader controls preserve edits, use real actions, and keep wide content locally scrollable', async () => {
+test('reader controls preserve edits, wrap code and keep wide tables locally scrollable', async () => {
   const root = await mkdtemp(join(tmpdir(), 'inknest-reading-ui-'))
   const path = join(root, '团队 文档说明.md')
   await writeFile(path, '# 阅读文档\n\n| ID | 名称 | 配置 |\n| --- | --- | --- |\n| A2 | Apple | `' + 'long_identifier_'.repeat(60) + '` |\n\n```ts\n' + 'code_'.repeat(100) + '\n```\n\n| '+Array.from({length: 16},(_,i)=>`Column${i}`).join(' | ')+' |\n| '+Array(16).fill('---').join(' | ')+' |\n| '+Array(16).fill('Apple').join(' | ')+' |\n\n![示例](missing.png)\n\n<script>window.untrusted = true</script>')
@@ -26,7 +26,7 @@ test('reader controls preserve edits, use real actions, and keep wide content lo
       const code = document.querySelector<HTMLElement>('.preview pre')!
       return { page: document.documentElement.scrollWidth <= innerWidth, table: table.scrollWidth > table.clientWidth, code: code.scrollWidth > code.clientWidth, focus: table.tabIndex }
     })
-    expect(overflow).toEqual({ page: true, table: true, code: true, focus: 0 })
+    expect(overflow).toEqual({ page: true, table: true, code: false, focus: 0 })
     await page.getByRole('button', { name: '编辑', exact: true }).click()
     await expect(page.getByRole('button', { name: '预览', exact: true })).toBeVisible()
     await expect(page.locator('.document-toolbar').getByRole('button', { name: '保存当前文档：团队 文档说明.md', exact: true })).toBeVisible()

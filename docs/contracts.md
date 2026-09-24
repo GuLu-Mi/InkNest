@@ -4,7 +4,7 @@
 
 精确 TypeScript 声明位于 [shared/contracts.ts](../src/shared/contracts.ts)，暴露实现位于 [preload/index.ts](../src/preload/index.ts)。当前 **25 个 invoke 方法 + 1 个事件订阅方法**，没有通用 IPC、Node、shell、任意路径读写或执行命令入口。
 
-Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能力，复用已有来源和资源契约，不新增 preload 方法。生成的 SVG/MathML/HTML、图表查看方式和折叠状态不属于 ContentSnapshot，不送入保存、恢复或历史正文。
+Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能力，复用已有来源和资源契约，不新增 preload 方法。生成的 SVG/MathML/HTML、图表查看方式、代码视觉换行和展开状态不属于 ContentSnapshot，不送入保存、恢复或历史正文。代码复制仍返回完整原始文本。
 
 ## 身份与状态
 

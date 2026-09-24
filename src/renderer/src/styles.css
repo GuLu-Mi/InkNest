@@ -60,7 +60,7 @@ button:disabled { cursor: default; opacity: .5; }
 .menu-content { position: absolute; z-index: 10; right: 0; top: 34px; display: grid; min-width: 154px; padding: 5px; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 7px; box-shadow: 0 6px 22px #0002; }
 .menu-content button { text-align: left; border: 0; white-space: nowrap; }
 .application-menu { margin-bottom: 8px; }
-.document-stage { flex: 1; min-height: 0; min-width: 0; overflow: auto; overflow-anchor: none; padding: 32px 0 64px; }
+.document-stage { --stage-bottom-space: 64px; flex: 1; min-height: 0; min-width: 0; overflow: auto; overflow-anchor: none; padding: 32px 0 var(--stage-bottom-space); }
 .edit-stage { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 24px; }
 .reading-pane { min-width: 0; }
 .editor-pane { flex: 1; min-height: 0; min-width: 0; overflow: hidden; width: 100%; background: var(--surface); }
@@ -84,7 +84,7 @@ button:disabled { cursor: default; opacity: .5; }
 @media (max-width: 600px) { .document-toolbar { gap: 6px; } .document-status { font-size: 11px; } .document-tab { max-width: 180px; } }
 
 /* Leave room for the status bar and editable body when the window is zoomed. */
-@media (max-height: 400px) { .document-stage { padding-block: 12px; } .document-notices { max-height: 25vh; } }
+@media (max-height: 400px) { .document-stage { --stage-bottom-space: 12px; padding-block: 12px; } .document-notices { max-height: 25vh; } }
 .document-workspace { position: relative; flex: 1; display: flex; min-height: 0; min-width: 0; }
 .document-center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; container: document / inline-size; }
 .document-outline { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; min-height: 0; padding: 16px 12px; border: 0; border-right: 1px solid var(--border-subtle); background: var(--surface-muted); color: var(--text-primary); font-size: 13px; }
@@ -129,7 +129,7 @@ dialog::backdrop { background: #0005; }
 @media (max-height: 400px) { .history-preview-bar { padding: 4px 12px; } .history-preview-actions { gap: 4px; } .history-preview-actions span { flex-basis: 100%; order: -1; } .document-status { max-height: 30px; overflow: auto; } }
 
 .presentation { position: relative; display: flex; flex: 1; min-height: 0; background: var(--surface); }
-.presentation-stage { padding: 64px 0; }
+.presentation-stage { --stage-bottom-space: 64px; padding: 64px 0 var(--stage-bottom-space); }
 .presentation .document-content { width: min(1440px, calc(100% - 48px)); }
 .presentation .markdown-body, .presentation .plain-document { font-size: 20px; line-height: 1.8; }
 .presentation-controls { position: absolute; z-index: 5; right: 24px; top: 16px; display: flex; gap: 8px; padding: 4px; border-radius: 7px; background: var(--surface); opacity: 1; transition: opacity .15s; }
@@ -137,7 +137,7 @@ dialog::backdrop { background: #0005; }
 .presentation-controls:focus-within { opacity: 1; pointer-events: auto; }
 .presentation-notice { position: absolute; z-index: 4; bottom: 8px; left: 24px; right: 24px; margin: 0; padding: 4px 8px; width: fit-content; max-width: calc(100% - 48px); background: var(--surface-muted); font-size: 12px; }
 .presentation-trigger { width: 30px; padding-inline: 0; }
-@media (max-height: 400px) { .presentation-stage { padding-block: 56px 24px; } }
+@media (max-height: 400px) { .presentation-stage { --stage-bottom-space: 24px; padding-block: 56px 24px; } }
 @media (prefers-reduced-motion: reduce) { .presentation-controls { transition: none; } }
 
 .history-preview-actions, .history-preview-bar > p { width: min(1080px, 100%); margin-inline: auto; }

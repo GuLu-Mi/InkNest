@@ -35,6 +35,25 @@ test('currency, escapes, inline code and fences remain literal', () => {
   expect(result).toContain('&lt;details&gt;')
 })
 
+test('reference definitions stay invisible and full, collapsed and shortcut links resolve equally', () => {
+  const parsed = parseDocument('[完整][目标] [目标][] [目标]\n\n[目标]: link-target.md "引用目标"\n\n<a id="sample-anchor"></a>\n\n锚点正文')
+  expect(parsed.html.match(/href="link-target.md"/gu)).toHaveLength(3)
+  expect(parsed.html).not.toContain('[目标]:')
+  expect(parsed.html).not.toContain('&lt;a')
+  expect(parsed.anchors).toHaveLength(1)
+  expect(renderMarkdown('[未定义]')).toContain('[未定义]')
+})
+
+test('bare email handles CJK punctuation without consuming it or linking literal code', () => {
+  for (const [before, after] of [['裸邮箱：', '。'], ['（', '）'], ['【', '】'], ['“', '”'], ['联系：', '；'], ['', '']]) {
+    const html = renderMarkdown(`${before}reader+tag@example.com${after}`)
+    expect(html).toContain(`${before}<a href="mailto:reader+tag@example.com">reader+tag@example.com</a>${after}`)
+  }
+  const literal = renderMarkdown('`邮箱：reader@example.com`\n\n```text\n（reader@example.com）\n```\n\n[reader@example.com](https://example.com)\n\nfoo@@example.com reader@invalid')
+  expect(literal).not.toContain('mailto:')
+  expect(literal.match(/<a /gu)).toHaveLength(1)
+})
+
 test('raw HTML outside the small formatting vocabulary stays escaped', () => {
   const result = renderMarkdown('<kbd onclick="x()">x</kbd> <iframe src="x"></iframe> <img src="x">\n\n<details ontoggle="x()">\n\n<div class="math-source">x</div>')
   expect(result).not.toContain('<iframe')

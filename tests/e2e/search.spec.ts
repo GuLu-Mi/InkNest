@@ -75,13 +75,13 @@ test('image diagnostics and explicit exact-file opening pause search behind the 
   } finally { await f.cleanup() }
 })
 
-test('offscreen code results scroll horizontally; overlay adapts to 800px, zoom and dark mode', async () => {
+test('offscreen code results wrap within the page; overlay adapts to 800px, zoom and dark mode', async () => {
   const f = await fixture('# Layout\n\n' + 'filler paragraph\n\n'.repeat(120) + '```\n' + 'x'.repeat(240) + 'NEEDLE\n```')
   try {
     const { app, page } = f; await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(800, 600) })
     await menu(app, 'find'); await query(page, 'NEEDLE', '1 / 1'); expect(await highlighted(page)).toEqual(['NEEDLE'])
     expect(await page.locator('.document-stage').evaluate(node => node.scrollTop)).toBeGreaterThan(1000)
-    expect(await page.locator('.preview pre').evaluate(node => node.scrollLeft)).toBeGreaterThan(100)
+    expect(await page.locator('.preview pre').evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.setZoomFactor(2))
     await page.evaluate(() => document.documentElement.dataset.theme = 'dark')
     await expect(f.input).toBeVisible(); const bar = await page.locator('.search-bar').boundingBox(); expect(bar!.x).toBeGreaterThanOrEqual(0); expect(bar!.width).toBeLessThanOrEqual(380)

@@ -1,4 +1,5 @@
 import { Text as DocumentText } from '@codemirror/state'
+import { revealCodeRange } from '../preview/code-folding'
 import { findMatches, Matches, pause, type Match, type SearchSurface } from './search-model'
 interface Run { node: Text; from: number; to: number; start: number; end: number }
 interface HighlightSet { set(key: string, value: unknown): void; delete(key: string): void }
@@ -107,6 +108,7 @@ export function previewSearchSurface(root: HTMLElement): SearchSurface {
     paint: (value, selected) => { matches = value; active = selected; paint() },
     reveal: hit => {
       const selected = range(hit); if (!selected) return
+      revealCodeRange(selected)
       let rect = selected.getBoundingClientRect()
       const horizontal = selected.startContainer.parentElement?.closest<HTMLElement>('pre,.table-scroll,.diagram-view,.math-display')
       if (horizontal && horizontal.scrollWidth > horizontal.clientWidth) {

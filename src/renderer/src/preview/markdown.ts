@@ -15,6 +15,12 @@ export const markdown = new MarkdownIt({
   typographer: false
 })
 
+// Treat common CJK punctuation as an email boundary, while keeping the library's
+// address validation and Markdown token handling (links/code/escapes) intact.
+const linkPatterns = markdown.linkify.re
+const emailName = new RegExp(`(?:^|[：，；、。！？（）【】《》「」『』“”‘’]|${linkPatterns.get_text_separators().source}|"|\\(|${linkPatterns.src_ZCc})(${linkPatterns.get_mail_name().source})$`)
+linkPatterns.get_mail_name_validator = () => emailName
+
 markdown.use(footnote).use(taskLists, { enabled: false, label: false }).use(emoji, { shortcuts: {} })
   .use(deflist).use(mark).use(sub).use(sup).use(documentExtensions)
 

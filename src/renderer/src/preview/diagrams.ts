@@ -10,6 +10,40 @@ const palette = (dark: boolean) => dark
   ? { blue: '#72b9ff', node: '#213c55', border: '#486078', line: '#9ca6b1', surface: '#1d1f23', text: '#e5e7eb' }
   : { blue: '#339cff', node: '#e6f2ff', border: '#cfdae5', line: '#8e8f90', surface: '#ffffff', text: '#24292f' }
 
+const diagramFont = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const mindmapColors = (dark: boolean) => dark
+  ? [['#243e5b', '#b7d7ff', '#6a9edc'], ['#3c3156', '#dec9ff', '#aa89d9'], ['#244738', '#b2e5c8', '#70b392'], ['#504021', '#f4dda7', '#c5a468'], ['#4d3040', '#f1c4dc', '#cd8cb0'], ['#23464d', '#b6e6eb', '#70b9c2']]
+  : [['#e5efff', '#234d80', '#87afe0'], ['#eee5fb', '#5d3c89', '#b69bd9'], ['#e4f3e9', '#285e40', '#8dbda0'], ['#fff1d5', '#77541c', '#d3b36e'], ['#fbe7ef', '#85405e', '#d79eb8'], ['#e2f3f5', '#275f67', '#87bfc7']]
+
+function mindmapTheme(dark: boolean): Record<string, string | number | boolean> {
+  const colors = mindmapColors(dark)
+  const theme: Record<string, string | number | boolean> = { darkMode: dark, fontSize: '18px', git0: dark ? '#80b7ff' : '#2865bb', gitBranchLabel0: dark ? '#172b45' : '#ffffff' }
+  for (let index = 0; index < 12; index++) {
+    const [fill, text, accent] = colors[(index + colors.length - 1) % colors.length]!
+    theme[`cScale${index}`] = fill!; theme[`cScaleLabel${index}`] = text!; theme[`cScaleInv${index}`] = accent!
+  }
+  return theme
+}
+
+function styleMindmap(svg: SVGSVGElement, container: HTMLElement, dark: boolean): void {
+  // Measure sanitized SVG in the existing offscreen container. SVG-only labels
+  // on circular nodes can arrive with a left edge at the node center.
+  container.append(svg)
+  for (const node of svg.querySelectorAll<SVGGElement>('.mindmap-node')) {
+    const shape = node.querySelector<SVGGraphicsElement>(':scope > circle,:scope > rect,:scope > path,:scope > polygon,:scope > ellipse')
+    const label = node.querySelector<SVGGElement>(':scope > .label')
+    if (!shape || !label) continue
+    const box = shape.getBBox(), text = label.getBBox()
+    label.setAttribute('transform', `translate(${box.x + box.width / 2 - text.x - text.width / 2}, ${box.y + box.height / 2 - text.y - text.height / 2})`)
+  }
+  const colors = mindmapColors(dark)
+  for (const edge of svg.querySelectorAll<SVGElement>('.edge')) {
+    const section = [...edge.classList].map(name => /^section-edge-(\d+)$/u.exec(name)).find(Boolean)
+    if (section) edge.style.stroke = colors[Number(section[1]) % colors.length]![2]!
+  }
+  svg.remove()
+}
+
 /** Application-owned decoration after sanitization; retain source text and nonrectangular symbols. */
 function styleFlowchart(svg: SVGSVGElement, dark: boolean): void {
   const colors = palette(dark)
@@ -112,10 +146,11 @@ export function renderDiagram(source: string, dark: boolean, signal: AbortSignal
     mermaid.initialize(options)
     // Use Mermaid's own detector so comments and alternate graph declarations work alike.
     // Other diagram families retain their categorical colors and symbols.
-    if (['flowchart', 'flowchart-v2'].includes(mermaid.detectType(source))) {
+    const type = mermaid.detectType(source)
+    if (['flowchart', 'flowchart-v2'].includes(type)) {
       const colors = palette(dark)
       mermaid.initialize({ ...options, theme: 'base', look: 'classic',
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily: diagramFont,
         themeVariables: { darkMode: dark, background: colors.surface, primaryColor: colors.node, primaryTextColor: colors.blue,
           primaryBorderColor: colors.border, lineColor: colors.line, textColor: colors.text,
           secondaryColor: dark ? '#293a4d' : '#edf5ff', tertiaryColor: dark ? '#30363e' : '#f6f8fb',
@@ -123,6 +158,9 @@ export function renderDiagram(source: string, dark: boolean, signal: AbortSignal
           nodeTextColor: colors.blue, nodeBorder: colors.border, defaultLinkColor: colors.line,
           fontSize: '16px', strokeWidth: 1.2 },
         flowchart: { htmlLabels: false, padding: 24, wrappingWidth: 320, nodeSpacing: 48, rankSpacing: 68, curve: 'rounded' } })
+    } else if (type === 'mindmap') {
+      mermaid.initialize({ ...options, theme: 'base', look: 'classic', fontFamily: diagramFont, fontSize: 18,
+        themeVariables: mindmapTheme(dark), mindmap: { padding: 22 } })
     }
     const id = `inknest-diagram-${++nextId}`
     const container = document.createElement('div')
@@ -133,6 +171,7 @@ export function renderDiagram(source: string, dark: boolean, signal: AbortSignal
       signal.throwIfAborted()
       const svg = safeSvg(result.svg, id, dark)
       if (result.diagramType === 'flowchart' || result.diagramType === 'flowchart-v2') styleFlowchart(svg, dark)
+      if (result.diagramType === 'mindmap') styleMindmap(svg, container, dark)
       return svg
     } finally { container.remove() }
   })
