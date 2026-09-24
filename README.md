@@ -15,6 +15,12 @@ InkNest 是本地 Markdown 阅读与源码编辑器。文档保留在用户选�
 
 项目仍处于开发中，最新版本及安装包见 [Releases](https://github.com/GuLu-Mi/InkNest/releases/latest)。目标平台为 Windows 11 x64 和 macOS 14 及以上 Apple Silicon Mac；兼容性、功能限制和已知问题见[已知限制](docs/known-issues.md)。
 
+## Markdown 展示
+
+[InkNest Markdown 完整展示](docs/examples/markdown-showcase.md) 包含基础排版、表格、任务列表、链接、四种本地图片、代码高亮、Mermaid 图表、数学公式及扩展语法。
+
+可在 GitHub 浏览示例源码与页面。GitHub 使用自身的渲染规则，配色、部分扩展语法和交互与应用不同。查看 InkNest 的实际效果时，下载或克隆仓库，用应用打开 `docs/examples/markdown-showcase.md`；保留同目录中的辅助文档与 `assets` 图片目录。
+
 ## 从源码运行
 
 需要 Node.js **24.21.0** 和 npm **11.12.1**。版本由 `.nvmrc`、`package.json` 和锁文件固定；首次安装需要下载 Electron 和平台原生依赖。

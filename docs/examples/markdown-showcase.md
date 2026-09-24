@@ -8,6 +8,8 @@ tags: [Markdown, 示例, 离线]
 
 这份文档展示 [支持清单](../markdown.md) 中的全部内容。可以通过左侧目录逐项查看，也可以切换到编辑模式对照写法。示例只用于显示，不会执行其中的代码。
 
+在 GitHub 浏览时，页面使用 GitHub 的渲染规则，部分扩展语法、配色和交互可能不同。本文中的目录、编辑、复制、展开代码及图片查看等操作均指 InkNest。查看应用内完整效果，请下载或克隆仓库后，用 InkNest 打开本文件。
+
 文档顶部的“文档元数据”默认折叠。图片位于同目录的 `assets` 文件夹，移动文档时请一起保留。
 
 ## 01 · 流程图与链接外观
@@ -153,9 +155,9 @@ Setext 二级标题
 - [引用式链接][sample-document]
 - [省略标识的引用式链接][]
 - [短引用]
-- [显式网页链接](https://example.com/inknest)
-- 裸网址：https://example.com/inknest
-- 自动链接：<https://example.com/inknest>
+- [显式网页链接](https://github.com/GuLu-Mi/InkNest)
+- 裸网址：https://github.com/GuLu-Mi/InkNest
+- 自动链接：<https://github.com/GuLu-Mi/InkNest>
 - 裸邮箱：reader@example.com
 - 邮箱自动链接：<reader@example.com>
 - [邮箱链接](mailto:reader@example.com)
@@ -571,7 +573,7 @@ public record Document(string Title, bool Saved);
 ```markdown
 # 标题
 
-**粗体**、[链接](https://example.com)
+**粗体**、[链接](https://github.com/GuLu-Mi/InkNest)
 ```
 
 ### diff
