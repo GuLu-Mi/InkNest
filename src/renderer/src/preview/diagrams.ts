@@ -1,9 +1,44 @@
 import DOMPurify from 'dompurify'
+import type { MermaidConfig } from 'mermaid'
 import { diagramProblem, safeDiagramDeclaration } from './rich-policy'
 
 let nextId = 0
 let tail: Promise<void> = Promise.resolve()
 let library: Promise<typeof import('mermaid')> | undefined
+
+const palette = (dark: boolean) => dark
+  ? { blue: '#72b9ff', node: '#213c55', border: '#486078', line: '#9ca6b1', surface: '#1d1f23', text: '#e5e7eb' }
+  : { blue: '#339cff', node: '#e6f2ff', border: '#cfdae5', line: '#8e8f90', surface: '#ffffff', text: '#24292f' }
+
+/** Application-owned decoration after sanitization; retain source text and nonrectangular symbols. */
+function styleFlowchart(svg: SVGSVGElement, dark: boolean): void {
+  const colors = palette(dark)
+  for (const rect of svg.querySelectorAll<SVGRectElement>('.node > rect.basic.label-container:not([rx])')) {
+    rect.setAttribute('rx', '18'); rect.setAttribute('ry', '18')
+  }
+  // Expand the existing SVG label background; text stays in Mermaid's measured position.
+  for (const rect of svg.querySelectorAll<SVGRectElement>('.edgeLabel rect.background')) {
+    const width = rect.width.baseVal.value, height = rect.height.baseVal.value
+    if (width <= 0 || height <= 0) continue
+    rect.x.baseVal.value -= 6; rect.y.baseVal.value -= 4
+    rect.width.baseVal.value = width + 12; rect.height.baseVal.value = height + 8
+    rect.setAttribute('rx', String((height + 8) / 2))
+    rect.style.fill = colors.surface; rect.style.stroke = colors.blue
+    rect.style.strokeWidth = '1.2px'; rect.style.opacity = '1'
+  }
+  for (const text of svg.querySelectorAll<SVGElement>('.node text, .edgeLabel text, .node tspan[font-weight="normal"], .edgeLabel tspan[font-weight="normal"]')) {
+    text.style.fill = colors.blue; text.style.fontWeight = '600'
+  }
+  // Only the ordinary point arrow becomes open; diamonds, circles and other markers keep their meaning.
+  for (const marker of svg.querySelectorAll<SVGElement>('marker[id$="-pointEnd"] path')) {
+    marker.setAttribute('d', 'M 1 1 L 9 5 L 1 9')
+    marker.style.fill = 'none'; marker.style.stroke = colors.line
+    marker.style.strokeWidth = '1.4px'; marker.style.strokeLinecap = 'round'; marker.style.strokeLinejoin = 'round'
+  }
+  const box = svg.viewBox.baseVal
+  svg.setAttribute('viewBox', `${box.x - 12} ${box.y - 6} ${box.width + 24} ${box.height + 12}`)
+  svg.style.width = `${Math.min(svg.viewBox.baseVal.width, 12000)}px`
+}
 
 function safeSvg(source: string, id: string, dark: boolean): SVGSVGElement {
   const fragment = DOMPurify.sanitize(source, {
@@ -70,10 +105,25 @@ export function renderDiagram(source: string, dark: boolean, signal: AbortSignal
     library ??= import('mermaid')
     const { default: mermaid } = await library
     signal.throwIfAborted()
-    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true,
+    const options: MermaidConfig = { startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true,
       theme: dark ? 'dark' : 'default', fontFamily: 'Arial, sans-serif', fontSize: 16,
       htmlLabels: false, flowchart: { htmlLabels: false }, maxTextSize: 20_000, maxEdges: 200,
-      deterministicIds: false, secure: ['securityLevel', 'startOnLoad', 'maxTextSize', 'maxEdges', 'htmlLabels', 'themeCSS', 'fontFamily', 'flowchart'] })
+      deterministicIds: false, secure: ['securityLevel', 'startOnLoad', 'maxTextSize', 'maxEdges', 'htmlLabels', 'themeCSS', 'fontFamily', 'flowchart'] }
+    mermaid.initialize(options)
+    // Use Mermaid's own detector so comments and alternate graph declarations work alike.
+    // Other diagram families retain their categorical colors and symbols.
+    if (['flowchart', 'flowchart-v2'].includes(mermaid.detectType(source))) {
+      const colors = palette(dark)
+      mermaid.initialize({ ...options, theme: 'base', look: 'classic',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        themeVariables: { darkMode: dark, background: colors.surface, primaryColor: colors.node, primaryTextColor: colors.blue,
+          primaryBorderColor: colors.border, lineColor: colors.line, textColor: colors.text,
+          secondaryColor: dark ? '#293a4d' : '#edf5ff', tertiaryColor: dark ? '#30363e' : '#f6f8fb',
+          secondaryTextColor: colors.text, tertiaryTextColor: colors.text, edgeLabelBackground: colors.surface,
+          nodeTextColor: colors.blue, nodeBorder: colors.border, defaultLinkColor: colors.line,
+          fontSize: '16px', strokeWidth: 1.2 },
+        flowchart: { htmlLabels: false, padding: 24, wrappingWidth: 320, nodeSpacing: 48, rankSpacing: 68, curve: 'rounded' } })
+    }
     const id = `inknest-diagram-${++nextId}`
     const container = document.createElement('div')
     container.className = 'diagram-measure'; container.setAttribute('aria-hidden', 'true')
@@ -81,7 +131,9 @@ export function renderDiagram(source: string, dark: boolean, signal: AbortSignal
     try {
       const result = await mermaid.render(id, source, container)
       signal.throwIfAborted()
-      return safeSvg(result.svg, id, dark)
+      const svg = safeSvg(result.svg, id, dark)
+      if (result.diagramType === 'flowchart' || result.diagramType === 'flowchart-v2') styleFlowchart(svg, dark)
+      return svg
     } finally { container.remove() }
   })
   tail = operation.then(() => {}, () => {})

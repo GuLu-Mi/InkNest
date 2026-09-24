@@ -135,6 +135,8 @@ I/O 错误注入、真实子进程 SIGKILL、物理磁盘满、真实系统占�
 
 ## Markdown 兼容性回归
 
+可阅读展示文档 [markdown-showcase.md](examples/markdown-showcase.md) 覆盖支持清单和全部 common 高亮语言。视觉检查深浅主题中的流程图圆角、连线标签、长节点文字与非矩形符号，并核对段落/引用/表格中的链接颜色；切主题和源码显示不改写正文。浅色强调色的对比度例外见[已知限制](known-issues.md)。
+
 固定样本 `tests/fixtures/markdown-compatibility.md` 包含基础语法、任务、表格对齐、元数据、提示块、脚注、折叠、代码、四种公式分隔符、十三类图表和错误块。不得使用用户文档作写入样本。
 
 | 用例 | 操作与预期 | 关联 |

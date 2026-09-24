@@ -4,6 +4,8 @@
 
 普通阅读、历史预览、恢复草稿预览和全屏演示使用同一套渲染规则。编辑模式始终显示 Markdown 源码；预览结果不参与保存，不自动格式化文件。Markdown 存在不同方言，本应用支持范围如下。
 
+完整可阅读样例见 [Markdown 完整展示](examples/markdown-showcase.md)，包含本地图片、清单内各类图表、公式与全部常用高亮语言。
+
 ## 支持清单
 
 | 内容 | 写法与行为 |
@@ -26,6 +28,10 @@
 预览高亮使用 highlight.js 的 common 语言集，包括 Bash、C/C++、C#、CSS、Diff、Go、GraphQL、INI、Java、JavaScript、JSON、Kotlin、Less、Lua、Makefile、Markdown、Objective-C、Perl、PHP、Plaintext、Python、R、Ruby、Rust、SCSS、Shell、SQL、Swift、TypeScript、VB.NET、WebAssembly、XML/HTML、YAML 及库提供的别名。
 
 ## 图表与公式
+
+Mermaid 流程图使用应用固定的蓝色主题。普通矩形显示为浅蓝圆角节点、蓝色文字和灰色连线，连线文字以胶囊标签显示；深色主题使用深蓝底和浅蓝文字。判断菱形、圆形、圆柱等形状保持语义，较长节点文字自动换行。其他图型保留各自的分类配色。
+
+正文链接使用亮蓝色并保留下划线；配色不改变链接打开方式。浅色强调色的对比度限制见[已知限制](known-issues.md)。
 
 图表默认适应正文宽度。“原始大小”提供局部滚动，“查看源码”切换图形与源码，“复制”始终复制图表原始代码。深浅主题自动更新图表配色。图表文字由本机绘制，不需要联网。
 

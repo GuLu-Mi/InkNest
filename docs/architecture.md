@@ -60,7 +60,7 @@ main 启动即注册 open-file、单实例锁和 argv；`SystemOpenQueue` 合批
 
 `preview/extensions.ts` 只识别文档化的格式与折叠语法；任务、脚注等使用固定版本插件。`pipeline.ts` 在惰性模板中提取资源、表格对齐和脚注位置，净化后只恢复应用生成的类名、ID 与滚动控件。
 
-`rich-content.ts` 在净化且挂载的 DOM 上按需绘制代码、公式与图表。KaTeX 生成再净化的 MathML，Mermaid 严格模式生成再净化的 SVG；样式限定在当前图表，使用窗口 nonce。图表全局队列串行，AbortSignal 和预览代数共同拒绝旧来源结果，卸载移除测量容器；无正文级永久缓存。这些库生成的显示结果不进入保存路径，容量与降级见 [Markdown 兼容性](markdown.md)。
+`rich-content.ts` 在净化且挂载的 DOM 上按需绘制代码、公式与图表。KaTeX 生成再净化的 MathML，Mermaid 严格模式生成再净化的 SVG；样式限定在当前图表，使用窗口 nonce。Mermaid 流程图使用应用定义的 base 主题变量；净化后的流程图仅装饰普通矩形圆角、连线标签背景及普通箭头，保留文字、图型语义及 Markdown 源码，不扩大 SVG/样式白名单。图表全局队列串行，AbortSignal 和预览代数共同拒绝旧来源结果，卸载移除测量容器；无正文级永久缓存。这些库生成的显示结果不进入保存路径，容量与降级见 [Markdown 兼容性](markdown.md)。
 
 ## 搜索、历史与演示展示
 
