@@ -123,7 +123,7 @@ export async function codeAction(target: Element, announce: (message: string) =>
     catch { announce('复制失败，请选择代码后复制') }
   } else if (trigger.dataset.codeAction === 'source' && graphic) {
     pre.hidden = !pre.hidden; graphic.hidden = !pre.hidden
-    trigger.textContent = pre.hidden ? '查看源码' : '查看图表'; changed()
+    trigger.textContent = pre.hidden ? '查看源码' : '查看图表'
   } else if (trigger.dataset.codeAction === 'size' && graphic) {
     const svg = graphic.querySelector('svg')
     if (svg) {
@@ -136,5 +136,6 @@ export async function codeAction(target: Element, announce: (message: string) =>
     setCodeExpanded(wrapper, expanded)
     if (!expanded) trigger.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }
+  if (trigger.dataset.codeAction !== 'copy') changed()
   return true
 }

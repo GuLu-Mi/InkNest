@@ -6,7 +6,7 @@ interface HighlightSet { set(key: string, value: unknown): void; delete(key: str
 const highlightRegistry = () => (CSS as unknown as { highlights: HighlightSet }).highlights
 const highlight = (ranges: Range[]) => new (window as unknown as { Highlight: new (...ranges: Range[]) => unknown }).Highlight(...ranges)
 
-export function previewSearchSurface(root: HTMLElement): SearchSurface {
+export function previewSearchSurface(root: HTMLElement, beforeReveal?: () => void, afterReveal?: () => void): SearchSurface {
   const scroll = root.closest<HTMLElement>('.document-stage')!
   const name = `inknest-find-${crypto.randomUUID()}`
   // Fixed CSS names are shared only by the active surface; ownership is checked on disposal.
@@ -108,6 +108,7 @@ export function previewSearchSurface(root: HTMLElement): SearchSurface {
     paint: (value, selected) => { matches = value; active = selected; paint() },
     reveal: hit => {
       const selected = range(hit); if (!selected) return
+      beforeReveal?.()
       revealCodeRange(selected)
       let rect = selected.getBoundingClientRect()
       const horizontal = selected.startContainer.parentElement?.closest<HTMLElement>('pre,.table-scroll,.diagram-view,.math-display')
@@ -120,6 +121,7 @@ export function previewSearchSurface(root: HTMLElement): SearchSurface {
       const overlay = scroll.closest('.document-center,.presentation')?.querySelector<HTMLElement>('.search-bar')?.getBoundingClientRect()
       const inset = overlay ? overlay.bottom - host.top + 16 : 32
       scroll.scrollTop += rect.top - host.top - Math.max(inset, Math.min(scroll.clientHeight / 2, 180))
+      afterReveal?.()
       repaint()
     },
     position: () => viewport().from,

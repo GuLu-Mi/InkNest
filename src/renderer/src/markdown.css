@@ -54,7 +54,7 @@
 .markdown-body .code-block { --code-preview-height: 320px; margin: 20px 0; border: 1px solid var(--border-subtle); border-radius: 5px; overflow: clip; }
 .markdown-body .code-block pre { border: 0; border-radius: 0; margin: 0; overflow: visible; }
 .markdown-body .code-content { overflow: hidden; }
-.markdown-body .code-collapsed .code-content { max-height: var(--code-preview-height); }
+.markdown-body .code-collapsed .code-content { max-height: var(--code-preview-height); overflow-y: auto; }
 .markdown-body .code-footer { display: flex; justify-content: flex-end; padding: 6px 12px; background: var(--surface-muted); border-top: 1px solid var(--border-subtle); }
 .markdown-body .code-expanded > .code-footer { position: sticky; bottom: calc(-1 * var(--stage-bottom-space, 0px)); }
 .markdown-body .code-footer[hidden] { display: none; }

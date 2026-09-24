@@ -9,31 +9,33 @@ export function setCodeExpanded(wrapper: HTMLElement, expanded: boolean): void {
 
 /** Observe natural code height, not the clipped viewport, including closed details and reflow. */
 export function observeCodeFolding(signal: AbortSignal): (wrapper: HTMLElement, pre: HTMLPreElement) => void {
+  const update = (pre: HTMLPreElement): void => {
+    const wrapper = pre.closest<HTMLElement>('.code-block')
+    if (!wrapper) return
+    const footer = wrapper.querySelector<HTMLElement>('.code-footer')!
+    const limit = Number.parseFloat(getComputedStyle(wrapper).getPropertyValue('--code-preview-height'))
+    const tall = pre.getBoundingClientRect().height > limit + 1
+    footer.hidden = !tall
+    wrapper.classList.toggle('code-collapsed', tall && !wrapper.classList.contains('code-expanded'))
+  }
   const observer = new ResizeObserver(entries => {
     if (signal.aborted) return
-    for (const { target } of entries) {
-      const pre = target as HTMLPreElement
-      const wrapper = pre.closest<HTMLElement>('.code-block')
-      if (!wrapper) continue
-      const footer = wrapper.querySelector<HTMLElement>('.code-footer')!
-      const limit = Number.parseFloat(getComputedStyle(wrapper).getPropertyValue('--code-preview-height'))
-      const tall = pre.getBoundingClientRect().height > limit + 1
-      footer.hidden = !tall
-      wrapper.classList.toggle('code-collapsed', tall && !wrapper.classList.contains('code-expanded'))
-    }
+    for (const { target } of entries) update(target as HTMLPreElement)
   })
   signal.addEventListener('abort', () => observer.disconnect(), { once: true })
   return (wrapper, pre) => {
     if (signal.aborted) return
     if (!wrapper.querySelector('.code-content')) {
       const content = document.createElement('div'); content.className = 'code-content'; content.id = `inknest-code-${++nextCodeId}`
+      content.tabIndex = 0; content.setAttribute('role', 'region'); content.setAttribute('aria-label', '代码内容，可滚动')
+      pre.removeAttribute('tabindex')
       pre.replaceWith(content); content.append(pre)
       const footer = document.createElement('div'); footer.className = 'code-footer'; footer.dataset.searchIgnore = ''; footer.hidden = true
       const toggle = document.createElement('button'); toggle.type = 'button'; toggle.dataset.codeAction = 'fold'
       toggle.textContent = '展开代码'; toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-controls', content.id)
       footer.append(toggle); wrapper.append(footer)
     }
-    observer.observe(pre)
+    update(pre); observer.observe(pre)
   }
 }
 
@@ -41,5 +43,8 @@ export function observeCodeFolding(signal: AbortSignal): (wrapper: HTMLElement, 
 export function revealCodeRange(range: Range): void {
   const wrapper = range.startContainer.parentElement?.closest<HTMLElement>('.code-collapsed')
   const viewport = wrapper?.querySelector('.code-content')
-  if (wrapper && viewport && range.getBoundingClientRect().bottom > viewport.getBoundingClientRect().bottom) setCodeExpanded(wrapper, true)
+  if (wrapper && viewport) {
+    const hit = range.getBoundingClientRect(), bounds = viewport.getBoundingClientRect()
+    if (hit.bottom > bounds.bottom || hit.top < bounds.top) setCodeExpanded(wrapper, true)
+  }
 }

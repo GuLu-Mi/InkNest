@@ -1,6 +1,16 @@
 export type Mode = 'read' | 'edit'
 export type SaveReason = 'manual' | 'auto' | 'mode-change' | 'close'
-export interface ScrollBookmark { top: number; ratio: number; revision: number }
+/** Renderer-only reading state; never included in document snapshots or IPC. */
+export interface ReadingAnchor { key: string; textOffset?: number; offset: number; atStart: boolean }
+export interface ReadingDisclosure {
+  key: string
+  open?: boolean
+  expanded?: boolean
+  top?: number
+  source?: boolean
+  original?: boolean
+}
+export interface ScrollBookmark { top: number; ratio: number; revision: number; anchor?: ReadingAnchor; disclosures?: ReadingDisclosure[] }
 export interface TabViewState { mode: Mode; reading: ScrollBookmark; editorTop: number }
 export interface TextFormat { encoding: 'utf-8'; bom: boolean; eol: 'lf' | 'crlf' }
 export interface SessionRef { docId: string; epoch: string }

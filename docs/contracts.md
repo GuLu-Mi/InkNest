@@ -6,6 +6,8 @@
 
 Mermaid、公式、代码高亮、脚注与折叠是 renderer 的只读展示能力，复用已有来源和资源契约，不新增 preload 方法。生成的 SVG/MathML/HTML、图表查看方式、代码视觉换行和展开状态不属于 ContentSnapshot，不送入保存、恢复或历史正文。代码复制仍返回完整原始文本。
 
+`TabViewState.reading` 的 `ScrollBookmark` 仅驻留 renderer：除 top/ratio/revision，还可记录内容块指纹、块内文字偏移、视口偏移及折叠/代码/图表展示状态。每次生成独立快照，切换来源后不共享可变 DOM；异步绘制期间不将临时高度产生的位置覆盖旧书签。它不是 `OpenDocument.readingPosition` 的跨启动持久化实现，不增加 IPC 或磁盘记录。
+
 ## 身份与状态
 
 | 类型 / 字段 | 约束 |
